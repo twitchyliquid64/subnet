@@ -1,25 +1,29 @@
 package main
 
 import (
-    "log"
-
-    "github.com/songgao/water"
+	"fmt"
+	"log"
+	"os"
+	"subnet"
 )
 
 func main() {
-    ifce, err := water.NewTUN("")
-    if err != nil {
-        log.Fatal(err)
-    }
+	parseFlags()
 
-    log.Printf("Interface Name: %s\n", ifce.Name())
+	switch modeVar {
+	case "client":
+		c, err := subnet.NewClient(serverAddressVar, interfaceNameVar, manualClientMode)
+		checkErr(err, "subnet.NewClient()")
+		c.Run()
+	default:
+		fmt.Fprintf(os.Stderr, "Err: Unrecognised mode. Mode must be either client/server.\n")
+		os.Exit(3)
+	}
+}
 
-    packet := make([]byte, 2000)
-    for {
-        n, err := ifce.Read(packet)
-        if err != nil {
-            log.Fatal(err)
-        }
-        log.Printf("Packet Received: % x\n", packet[:n])
-    }
+func checkErr(err error, component string) {
+	if err != nil {
+		log.Printf("%s err: %s", component, err.Error())
+		os.Exit(1)
+	}
 }
