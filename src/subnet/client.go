@@ -168,6 +168,17 @@ func (c *Client) netSendRoutine() {
 			}
 		}
 		time.Sleep(time.Millisecond * 150)
+		dropSendBuffer(c.packetsIn)
+	}
+}
+
+func dropSendBuffer(buffer chan *IPPacket) {
+	for {
+		select {
+		case <-buffer:
+		default:
+			return
+		}
 	}
 }
 
@@ -176,11 +187,12 @@ func (c *Client) netRecvRoutine() {
 	defer c.wg.Done()
 
 	for !c.isShuttingDown {
-		for c.connectionOk {
-			decoder := gob.NewDecoder(c.tlsConn)
-			var pktType conn.PktType
+		decoder := gob.NewDecoder(c.tlsConn)
 
+		for c.connectionOk {
+			var pktType conn.PktType
 			err := decoder.Decode(&pktType)
+
 			if err != nil {
 				if !c.isShuttingDown {
 					log.Printf("Net read error: %s\n", err.Error())
@@ -191,6 +203,8 @@ func (c *Client) netRecvRoutine() {
 			}
 
 			switch pktType {
+			default:
+				log.Println("Got unexpected packet type: ", pktType)
 			case conn.PktIPPkt:
 				var ipPkt IPPacket
 				err := decoder.Decode(&ipPkt)
@@ -208,12 +222,21 @@ func (c *Client) netRecvRoutine() {
 }
 
 func (c *Client) connectionProblem() {
+	if !c.connectionOk {
+		return
+	}
+	if c.isShuttingDown {
+		return
+	}
+
 	c.connResetLock.Lock()
 	defer c.connResetLock.Unlock()
 
 	if c.connectionOk {
 		log.Println("Connection problem detected. Re-connecting.")
 		c.connectionOk = false
+
+		c.tlsConn.Close()
 		for i := 0; true; i++ {
 			tlsConn, err := tls.Dial("tcp", c.serverAddr+":"+c.port, c.tlsConf)
 			if err == nil {
@@ -223,7 +246,7 @@ func (c *Client) connectionProblem() {
 				break
 			} else {
 				log.Printf("Reconnect failure: %s. Retrying in %d seconds.\n", err.Error(), i*i*5)
-				time.Sleep(time.Millisecond * time.Duration(i*i*5))
+				time.Sleep(time.Second * time.Duration(i*i*5))
 			}
 		}
 	}

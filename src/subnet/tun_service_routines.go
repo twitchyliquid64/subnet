@@ -28,7 +28,7 @@ func devReadRoutine(dev *water.Interface, packetsIn chan *IPPacket, wg *sync.Wai
 			Protocol: waterutil.IPv4Protocol(packet[:n]),
 		}
 		packetsIn <- p
-		log.Printf("Packet Received: dest %s, len %d\n", p.Dest.String(), len(p.Raw))
+		//log.Printf("Packet Received: dest %s, len %d\n", p.Dest.String(), len(p.Raw))
 	}
 }
 
