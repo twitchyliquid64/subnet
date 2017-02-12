@@ -76,7 +76,7 @@ func NewClient(servAddr, port, network, iName string, newGateway string,
 // Initializes connection and changes network configuration as needed, but does not
 // activate the client object for use.
 func (c *Client) init(serverAddr, port string) error {
-	tlsConn, err := openTLSConnection(serverAddr, port, c.tlsConf)
+	tlsConn, err := tls.Dial("tcp", serverAddr+":"+port, c.tlsConf)
 	if err != nil {
 		return err
 	}
@@ -108,8 +108,27 @@ func (c *Client) init(serverAddr, port string) error {
 	return nil
 }
 
-func openTLSConnection(dest, port string, conf *tls.Config) (*tls.Conn, error) {
-	return tls.Dial("tcp", dest+":"+port, conf)
+// Run starts the client.
+func (c *Client) Run() {
+
+	if c.newGateway != "" { //Redirect default traffic via our VPN
+		err := SetDefaultGateway(c.newGateway, c.intf.Name(), true)
+		if err != nil {
+			log.Printf("Could set gateway: %s\n", err.Error())
+			return
+		}
+	}
+
+	err := SetInterfaceStatus(c.intf.Name(), true, true)
+	if err != nil {
+		log.Printf("Could not bring up interface %s: %s\n", c.intf.Name(), err.Error())
+		return
+	}
+
+	go c.netSendRoutine()
+	go c.netRecvRoutine()
+	go devReadRoutine(c.intf, c.packetsIn, &c.wg, &c.isShuttingDown)
+	go devWriteRoutine(c.intf, c.packetsDevOut, &c.wg, &c.isShuttingDown)
 }
 
 func (c *Client) netSendRoutine() {
@@ -166,29 +185,6 @@ func (c *Client) sendLocalAddr(encoder *gob.Encoder) error {
 		log.Println("Encode error: ", err)
 	}
 	return err
-}
-
-// Run starts the client.
-func (c *Client) Run() {
-
-	if c.newGateway != "" { //Redirect default traffic via our VPN
-		err := SetDefaultGateway(c.newGateway, c.intf.Name(), true)
-		if err != nil {
-			log.Printf("Could set gateway: %s\n", err.Error())
-			return
-		}
-	}
-
-	err := SetInterfaceStatus(c.intf.Name(), true, true)
-	if err != nil {
-		log.Printf("Could not bring up interface %s: %s\n", c.intf.Name(), err.Error())
-		return
-	}
-
-	go c.netSendRoutine()
-	go c.netRecvRoutine()
-	go devReadRoutine(c.intf, c.packetsIn, &c.wg, &c.isShuttingDown)
-	go devWriteRoutine(c.intf, c.packetsDevOut, &c.wg, &c.isShuttingDown)
 }
 
 // Close shuts down the client, reversing configuration changes to the system.
