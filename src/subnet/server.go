@@ -148,8 +148,10 @@ func (s *Server) dispatchRoutine() {
 	for !s.isShuttingDown {
 		select {
 		case pkt := <-s.inboundIPPkts:
+			//log.Printf("Got packet from NET: %s-%d len %d\n", pkt.pkt.Dest, pkt.clientID, len(pkt.pkt.Raw))
 			s.route(pkt.pkt)
 		case pkt := <-s.inboundDevPkts:
+			//log.Printf("Got packet from DEV: %s len %d\n", pkt.Dest, len(pkt.Raw))
 			s.route(pkt)
 		}
 	}
@@ -161,10 +163,12 @@ func (s *Server) route(pkt *IPPacket) {
 	if canRouteDirectly {
 		destClient := s.clients[destClientID]
 		destClient.queueIP(pkt)
+		//log.Println("Routing to CLIENT")
 	}
 	s.clientsLock.Unlock()
 	if !canRouteDirectly {
 		s.outboundDevPkts <- pkt
+		//log.Println("Routing to DEV")
 	}
 }
 

@@ -150,7 +150,7 @@ func (c *Client) netRecvRoutine() {
 				log.Printf("Could not decode IPPacket: %s", err.Error())
 				return
 			}
-			log.Printf("[NET] Packet Received: dest %s, len %d\n", ipPkt.Dest.String(), len(ipPkt.Raw))
+			//log.Printf("[NET] Packet Received: dest %s, len %d\n", ipPkt.Dest.String(), len(ipPkt.Raw))
 			c.packetsDevOut <- &ipPkt
 		}
 	}
@@ -186,6 +186,7 @@ func (c *Client) Run() {
 	}
 
 	go c.netSendRoutine()
+	go c.netRecvRoutine()
 	go devReadRoutine(c.intf, c.packetsIn, &c.wg, &c.isShuttingDown)
 	go devWriteRoutine(c.intf, c.packetsDevOut, &c.wg, &c.isShuttingDown)
 }
