@@ -78,7 +78,28 @@ Explanation:
 *WARNING:* The above commands setup a self-signed certificate and do not perform client verification. This allows anyone access. I highly recommend creating your own
 CA which signs all your certificates, and adding it to both the server & client command lines like `-ca ca.pem`. This will validate both sides are permitted.
 
+## Usage
 
+```
+Usage of ./subnet:
+./subnet <server address>
+  -ca string
+    	Path to PEM-encoded cert to validate client/serv. Optional.
+  -cert string
+    	Path to PEM-encoded cert for our side of the connection
+  -gw string
+    	(Client only) Set the default gateway to this value
+  -i string
+    	TUN interface, one is picked if not specified
+  -key string
+    	Path to PEM-encoded key for our cert
+  -mode string
+    	Whether the process starts a server or as a client (default "client")
+  -network string
+    	Address for this interface with netmask (default "192.168.69.1/24")
+  -port string
+    	Port for the VPN connection (default "3234")
+```
 
 ## TODO
 
