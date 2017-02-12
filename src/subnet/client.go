@@ -14,7 +14,7 @@ import (
 
 // Client represents a connection to a subnet server.
 type Client struct {
-	manual bool
+	newGateway string
 
 	wg             sync.WaitGroup
 	serverIP       net.IP
@@ -34,7 +34,7 @@ type Client struct {
 }
 
 // NewClient constructs a Client object.
-func NewClient(servAddr, port, network, iName string, manual bool,
+func NewClient(servAddr, port, network, iName string, newGateway string,
 	certPemPath, keyPemPath, caCertPath string) (*Client, error) {
 
 	tlsConf, err := conn.TLSConfig(certPemPath, keyPemPath, caCertPath)
@@ -61,7 +61,7 @@ func NewClient(servAddr, port, network, iName string, manual bool,
 
 	ret := &Client{
 		intf:          intf,
-		manual:        manual,
+		newGateway:    newGateway,
 		localAddr:     netIP,
 		localNetMask:  localNetMask,
 		serverIP:      serverIP,
@@ -87,7 +87,7 @@ func (c *Client) init(serverAddr, port string) error {
 	}
 	log.Printf("IP of %s set to %s, localNetMask %s\n", c.intf.Name(), c.localAddr.String(), net.IP(c.localNetMask.Mask).String())
 
-	if !c.manual {
+	if c.newGateway != "" {
 		// get default gateway information
 		gw, gatewayDevice, err := GetNetGateway()
 		if err != nil {
@@ -171,7 +171,12 @@ func (c *Client) sendLocalAddr(encoder *gob.Encoder) error {
 // Run starts the client.
 func (c *Client) Run() {
 
-	if !c.manual { //Redirect default traffic via our VPN
+	if c.newGateway != "" { //Redirect default traffic via our VPN
+		err := SetDefaultGateway(c.newGateway, c.intf.Name(), true)
+		if err != nil {
+			log.Printf("Could set gateway: %s\n", err.Error())
+			return
+		}
 	}
 
 	err := SetInterfaceStatus(c.intf.Name(), true, true)

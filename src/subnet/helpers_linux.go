@@ -31,6 +31,13 @@ func SetDevIP(iName string, localAddr net.IP, addr *net.IPNet, debug bool) error
 	return commandExec("ifconfig", args, debug)
 }
 
+// SetDefaultGateway sets the systems gateway to the IP / device specified.
+func SetDefaultGateway(gw, iName string, debug bool) error {
+	sargs := fmt.Sprintf("add default gw %s dev %s", gw, iName)
+	args := strings.Split(sargs, " ")
+	return commandExec("route", args, debug)
+}
+
 // AddRoute routes all traffic for addr via interface iName.
 func AddRoute(addr, viaAddr net.IP, iName string, debug bool) error {
 	sargs := fmt.Sprintf("add %s gw %s dev %s", addr.String(), viaAddr.String(), iName)

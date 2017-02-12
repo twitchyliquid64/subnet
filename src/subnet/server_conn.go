@@ -76,14 +76,14 @@ func (c *serverConn) readRoutine(isShuttingDown *bool, ipPacketSink chan *inboun
 				c.hadError(false)
 				return
 			}
-			log.Printf("Packet Received: dest %s, len %d\n", ipPkt.Dest.String(), len(ipPkt.Raw))
+			log.Printf("Packet Received from %d: dest %s, len %d\n", c.id, ipPkt.Dest.String(), len(ipPkt.Raw))
 			ipPacketSink <- &inboundIPPkt{pkt: &ipPkt, clientID: c.id}
 		}
 	}
 }
 
-func (c *serverConn) queueIP(pkt *inboundIPPkt) {
-	c.outboundIPPkts <- pkt.pkt
+func (c *serverConn) queueIP(pkt *IPPacket) {
+	c.outboundIPPkts <- pkt
 }
 
 func (c *serverConn) hadError(errInRead bool) {

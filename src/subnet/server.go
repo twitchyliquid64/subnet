@@ -14,8 +14,6 @@ import (
 
 //Server represents a service providing a VPN service to subnet clients.
 type Server struct {
-	manual bool
-
 	tlsConf        *tls.Config
 	tlsListener    net.Listener
 	localAddr      net.IP
@@ -28,6 +26,7 @@ type Server struct {
 	lastClientID      int
 
 	inboundIPPkts   chan *inboundIPPkt
+	inboundDevPkts  chan *IPPacket
 	outboundDevPkts chan *IPPacket
 
 	intf     *water.Interface
@@ -36,7 +35,7 @@ type Server struct {
 }
 
 // NewServer returns a new server object representing a VPN service.
-func NewServer(servHost, port, network, iName string, manual bool,
+func NewServer(servHost, port, network, iName string,
 	certPemPath, keyPemPath, caCertPath string) (*Server, error) {
 	tlsConf, err := conn.TLSConfig(certPemPath, keyPemPath, caCertPath)
 	if err != nil {
@@ -59,9 +58,9 @@ func NewServer(servHost, port, network, iName string, manual bool,
 		intf:              intf,
 		localAddr:         netIP,
 		localNetMask:      localNetMask,
-		manual:            manual,
 		tlsConf:           tlsConf,
 		inboundIPPkts:     make(chan *inboundIPPkt, servMaxInboundPktQueue),
+		inboundDevPkts:    make(chan *IPPacket, 2),
 		outboundDevPkts:   make(chan *IPPacket, 2),
 		clientIDByAddress: map[string]int{},
 		clients:           map[int]*serverConn{},
@@ -89,6 +88,7 @@ func (s *Server) Run() {
 	go s.acceptRoutine()
 	go s.dispatchRoutine()
 	go devWriteRoutine(s.intf, s.outboundDevPkts, &s.wg, &s.isShuttingDown)
+	go devReadRoutine(s.intf, s.inboundDevPkts, &s.wg, &s.isShuttingDown)
 }
 
 func (s *Server) acceptRoutine() {
@@ -109,24 +109,6 @@ func (s *Server) acceptRoutine() {
 			return
 		}
 		s.handleClient(conn)
-	}
-}
-
-// routing from inboundIPPkts to client/TUN.
-func (s *Server) dispatchRoutine() {
-	for !s.isShuttingDown {
-		pkt := <-s.inboundIPPkts
-
-		s.clientsLock.Lock()
-		destClientID, canRouteDirectly := s.clientIDByAddress[pkt.pkt.Dest.String()]
-		if canRouteDirectly {
-			destClient := s.clients[destClientID]
-			destClient.queueIP(pkt)
-		}
-		s.clientsLock.Unlock()
-		if !canRouteDirectly {
-			s.outboundDevPkts <- pkt.pkt
-		}
 	}
 }
 
@@ -159,6 +141,31 @@ func (s *Server) removeClientConn(id int) {
 	defer s.clientsLock.Unlock()
 
 	delete(s.clients, id)
+}
+
+// routing from inboundIPPkts/inboundDevPkts to client/TUN.
+func (s *Server) dispatchRoutine() {
+	for !s.isShuttingDown {
+		select {
+		case pkt := <-s.inboundIPPkts:
+			s.route(pkt.pkt)
+		case pkt := <-s.inboundDevPkts:
+			s.route(pkt)
+		}
+	}
+}
+
+func (s *Server) route(pkt *IPPacket) {
+	s.clientsLock.Lock()
+	destClientID, canRouteDirectly := s.clientIDByAddress[pkt.Dest.String()]
+	if canRouteDirectly {
+		destClient := s.clients[destClientID]
+		destClient.queueIP(pkt)
+	}
+	s.clientsLock.Unlock()
+	if !canRouteDirectly {
+		s.outboundDevPkts <- pkt
+	}
 }
 
 // Close shuts down the server, reversing configuration changes to the system.

@@ -16,7 +16,7 @@ var serverAddressVar string
 var connPortVar string
 
 var modeVar string
-var manualClientMode bool
+var gatewayVar string
 
 func printUsage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -32,7 +32,7 @@ func parseFlags() {
 	flag.StringVar(&connPortVar, "port", "3234", "Port for the VPN connection")
 	flag.StringVar(&modeVar, "mode", "client", "Whether the process starts a server or as a client")
 	flag.StringVar(&networkAddrVar, "network", "192.168.69.1/24", "Address for this interface with netmask")
-	flag.BoolVar(&manualClientMode, "manual", false, "Prevents subnet from changing config to route default traffic through it")
+	flag.StringVar(&gatewayVar, "gw", "", "(Client only) Set the default gateway to this value")
 
 	flag.Usage = printUsage
 	flag.Parse()
