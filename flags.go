@@ -31,7 +31,7 @@ func parseFlags() {
 	flag.StringVar(&ourKeyPathVar, "key", "", "Path to PEM-encoded key for our cert")
 	flag.StringVar(&connPortVar, "port", "3234", "Port for the VPN connection")
 	flag.StringVar(&modeVar, "mode", "client", "Whether the process starts a server or as a client")
-	flag.StringVar(&networkAddrVar, "network", "192.168.0.1/24", "Address for this interface with netmask")
+	flag.StringVar(&networkAddrVar, "network", "192.168.69.1/24", "Address for this interface with netmask")
 	flag.BoolVar(&manualClientMode, "manual", false, "Prevents subnet from changing config to route default traffic through it")
 
 	flag.Usage = printUsage

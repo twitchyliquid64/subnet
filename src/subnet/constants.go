@@ -3,6 +3,7 @@ package subnet
 const (
 	pktInMaxBuff = 200
 
-	devMtuSize     = 1500
-	devPktBuffSize = 4096
+	devMtuSize             = 1500
+	devPktBuffSize         = 2048
+	servMaxInboundPktQueue = 20
 )

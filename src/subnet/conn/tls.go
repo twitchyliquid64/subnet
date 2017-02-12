@@ -28,7 +28,6 @@ func TLSConfig(certPemPath, keyPemPath, caCertPath string) (*tls.Config, error) 
 		PreferServerCipherSuites: true,
 		RootCAs:                  roots,
 		ClientCAs:                roots,
-		ClientAuth:               tls.RequireAndVerifyClientCert,
 		CipherSuites: []uint16{
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
@@ -48,6 +47,8 @@ func TLSConfig(certPemPath, keyPemPath, caCertPath string) (*tls.Config, error) 
 	if caCertPath == "" {
 		gTLSConfig.InsecureSkipVerify = true
 		log.Println("Warning: No CA certificate specified. Skipping TLS verification of server. This is bad!")
+	} else {
+		gTLSConfig.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 
 	return gTLSConfig, nil

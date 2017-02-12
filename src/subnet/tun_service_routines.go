@@ -13,7 +13,7 @@ func devReadRoutine(dev *water.Interface, packetsIn chan *IPPacket, wg *sync.Wai
 	defer wg.Done()
 
 	packet := make([]byte, devPktBuffSize)
-	for {
+	for !*isShuttingDown {
 		n, err := dev.Read(packet)
 		if err != nil {
 			if !*isShuttingDown {
@@ -23,11 +23,25 @@ func devReadRoutine(dev *water.Interface, packetsIn chan *IPPacket, wg *sync.Wai
 			return
 		}
 		p := &IPPacket{
-			raw:      packet[:n],
-			dest:     waterutil.IPv4Destination(packet[:n]),
-			protocol: waterutil.IPv4Protocol(packet[:n]),
+			Raw:      packet[:n],
+			Dest:     waterutil.IPv4Destination(packet[:n]),
+			Protocol: waterutil.IPv4Protocol(packet[:n]),
 		}
 		packetsIn <- p
-		log.Printf("Packet Received: dest %s, len %d\n", p.dest.String(), len(p.raw))
+		log.Printf("Packet Received: dest %s, len %d\n", p.Dest.String(), len(p.Raw))
+	}
+}
+
+func devWriteRoutine(dev *water.Interface, packetsOut chan *IPPacket, wg *sync.WaitGroup, isShuttingDown *bool) {
+	wg.Add(1)
+	defer wg.Done()
+
+	for !*isShuttingDown {
+		pkt := <-packetsOut
+		_, err := dev.Write(pkt.Raw)
+		if err != nil {
+			log.Printf("Write to %s failed: %s\n", dev.Name(), err.Error())
+			return
+		}
 	}
 }

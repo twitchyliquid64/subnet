@@ -8,7 +8,12 @@ import (
 
 // IPPacket represents a packet in transit over the VPN.
 type IPPacket struct {
-	raw      []byte
-	dest     net.IP
-	protocol waterutil.IPProtocol
+	Raw      []byte
+	Dest     net.IP
+	Protocol waterutil.IPProtocol
+}
+
+type inboundIPPkt struct {
+	pkt      *IPPacket
+	clientID int
 }
