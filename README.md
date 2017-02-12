@@ -56,8 +56,6 @@ git clone https://github.com/twitchyliquid64/subnet
 cd subnet
 export GOPATH=`pwd`
 go build
-sysctl net.ipv4.ip_forward=1
-iptables -t nat -A POSTROUTING -j MASQUERADE
 openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365
 ./subnet -mode server -key key.pem -cert cert.pem -network 192.168.69.1/24 0.0.0.0
 ```
