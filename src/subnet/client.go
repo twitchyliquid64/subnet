@@ -1,52 +1,138 @@
 package subnet
 
 import (
+	"crypto/tls"
 	"errors"
 	"log"
+	"net"
+	"subnet/conn"
+	"sync"
 
 	"github.com/songgao/water"
 )
 
 // Client represents a connection to a subnet server.
 type Client struct {
-	addr   string
-	iName  string
 	manual bool
 
-	intf *water.Interface
+	wg             sync.WaitGroup
+	serverIP       net.IP
+	localAddr      net.IP
+	localNetMask   *net.IPNet
+	isShuttingDown bool
+
+	//channels between various components
+	packetsIn chan *IPPacket
+
+	intf    *water.Interface
+	tlsConf *tls.Config
+	tlsConn *tls.Conn //do not use directly
+
+	reverser Reverser
 }
 
 // NewClient constructs a Client object.
-func NewClient(addr, iName string, manual bool) (*Client, error) {
+func NewClient(servAddr, port, network, iName string, manual bool,
+	certPemPath, keyPemPath, caCertPath string) (*Client, error) {
+
+	tlsConf, err := conn.TLSConfig(certPemPath, keyPemPath, caCertPath)
+	if err != nil {
+		return nil, err
+	}
+
+	serverIP, err := hostToIP(servAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	netIP, localNetMask, err := net.ParseCIDR(network)
+	if err != nil {
+		return nil, errors.New("invalid network address/mask - " + err.Error())
+	}
+
 	intf, err := water.NewTUN(iName)
 	if err != nil {
 		return nil, errors.New("Could not create TUN - " + err.Error())
 	}
 
-	log.Printf("Created interface with name %s\n", intf.Name())
+	log.Printf("Created iface %s\n", intf.Name())
 
 	ret := &Client{
-		intf:   intf,
-		addr:   addr,
-		manual: manual,
-		iName:  intf.Name(),
+		intf:         intf,
+		manual:       manual,
+		localAddr:    netIP,
+		localNetMask: localNetMask,
+		serverIP:     serverIP,
+		tlsConf:      tlsConf,
+		packetsIn:    make(chan *IPPacket, pktInMaxBuff),
 	}
 
-	return ret, ret.init()
+	return ret, ret.init(servAddr, port)
 }
 
 // Initializes connection and changes network configuration as needed, but does not
 // activate the client object for use.
-func (c *Client) init() error {
+func (c *Client) init(serverAddr, port string) error {
+	tlsConn, err := openTLSConnection(serverAddr, port, c.tlsConf)
+	if err != nil {
+		return err
+	}
+	c.tlsConn = tlsConn
 
-	if !c.manual { //setup routes on the system
+	if err := SetDevIP(c.intf.Name(), c.localAddr, c.localNetMask, false); err != nil {
+		return err
+	}
+	log.Printf("IP of %s set to %s, localNetMask %s\n", c.intf.Name(), c.localAddr.String(), net.IP(c.localNetMask.Mask).String())
+
+	if !c.manual {
+		// get default gateway information
+		gw, gatewayDevice, err := GetNetGateway()
+		if err != nil {
+			return err
+		}
+		gateway := net.ParseIP(gw)
+		log.Printf("Default gateway is %s on %s\n", gateway, gatewayDevice)
+
+		// route all traffic to the VPN server through the current gateway device
+		if err := AddRoute(c.serverIP, gateway, gatewayDevice, false); err != nil {
+			return err
+		}
+		log.Printf("Traffic to %s now routed via %s on %s.\n", c.serverIP.String(), gw, gatewayDevice)
+		c.reverser.AddRouteEntry(c.serverIP, gateway, gatewayDevice)
 
 	}
 
 	return nil
 }
 
+func openTLSConnection(dest, port string, conf *tls.Config) (*tls.Conn, error) {
+	return tls.Dial("tcp", dest+":"+port, conf)
+}
+
 // Run starts the client.
 func (c *Client) Run() {
 
+	if !c.manual { //Redirect default traffic via our VPN
+	}
+
+	err := SetInterfaceStatus(c.intf.Name(), true, true)
+	if err != nil {
+		log.Printf("Could not bring up interface %s: %s\n", c.intf.Name(), err.Error())
+		return
+	}
+
+	go devReadRoutine(c.intf, c.packetsIn, &c.wg, &c.isShuttingDown)
+}
+
+// Close shuts down the client, reversing configuration changes to the system.
+func (c *Client) Close() error {
+	c.isShuttingDown = true
+	c.reverser.Close()
+	e := c.intf.Close()
+	if e != nil {
+		return e
+	}
+
+	c.wg.Wait()
+	return nil
 }

@@ -10,3 +10,9 @@
 /src/github.com/rogpeppe/*
 /src/github.com/sqs/*
 /src/github.com/zmb3/*
+
+/ca.crt
+/ca.pem
+/ca.priv
+/localhost.certPEM
+/localhost.keyPEM
