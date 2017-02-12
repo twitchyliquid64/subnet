@@ -32,9 +32,10 @@ sudo ./subnet -gw 192.168.69.1 -network 192.168.69.4/24 cnc.ciphersink.net
 
 Explanation:
  * subnet is downloaded and compiled on both client and server.
- * Server gets the VPN address 192.168.69.1, managing traffic for 192.168.69.1-192.168.69.255.
- * Client gets the address 192.168.69.4.
- * Client remaps its default gateway to 192.168.69.1, forcing all non-LAN traffic through the VPN server.
+ * Server's networking stack is told to allow the forwarding of packets, and to apply NAT to the packets.
+ * Server gets the VPN address `192.168.69.1`, managing traffic for `192.168.69.1` - `192.168.69.255`.
+ * Client gets the address `192.168.69.4`.
+ * Client remaps its default gateway to `192.168.69.1`, forcing all non-LAN traffic through the VPN server.
 
 WARNING: The above commands setup a self-signed certificate and do not perform client verification. This allows anyone access. I highly recommend creating your own
 CA which signs all your certificates, and adding it to both the server & client command lines like `-ca ca.pem`. This will validate both sides are permitted.
@@ -66,9 +67,9 @@ sudo ./subnet -network 192.168.69.4/24 cnc.ciphersink.net
 
 Explanation:
  * subnet is downloaded and compiled on both client and server.
- * Server gets the VPN address 192.168.69.1, managing traffic for 192.168.69.1-192.168.69.255.
- * Client gets the address 192.168.69.4. The /24 subnet mask means traffic for addresses 192.168.69.1 to 192.168.69.255 will be routed through the VPN.
- * Any traffic to 192.168.69.1 will go to the VPN server. Any traffic to 192.168.69.1 to 192.168.69.255 will go to clients connected to the same server with that address. All other traffic is routed outside of subnet.
+ * Server gets the VPN address `192.168.69.1`, managing traffic for `192.168.69.1` - `192.168.69.255`.
+ * Client gets the address `192.168.69.4`. The `/24` subnet mask means traffic for addresses `192.168.69.1` to `192.168.69.255` will be routed through the VPN.
+ * Any traffic to `192.168.69.1` will go to the VPN server. Any traffic to `192.168.69.1` to `192.168.69.255` will go to clients connected to the same server with that address. All other traffic is routed outside of subnet.
 
 WARNING: The above commands setup a self-signed certificate and do not perform client verification. This allows anyone access. I highly recommend creating your own
 CA which signs all your certificates, and adding it to both the server & client command lines like `-ca ca.pem`. This will validate both sides are permitted.
