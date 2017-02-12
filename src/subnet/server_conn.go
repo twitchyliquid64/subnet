@@ -16,10 +16,13 @@ type serverConn struct {
 	server     *Server
 	canSendIP  bool
 	remoteAddr net.IP
+
+	connectionOk bool
 }
 
 func (c *serverConn) initClient(s *Server) {
 	c.outboundIPPkts = make(chan *IPPacket, 2)
+	c.connectionOk = true
 	c.server = s
 	log.Printf("New connection from %s (%d)\n", c.conn.RemoteAddr().String(), c.id)
 	go c.readRoutine(&s.isShuttingDown, s.inboundIPPkts)
@@ -29,13 +32,14 @@ func (c *serverConn) initClient(s *Server) {
 func (c *serverConn) writeRoutine(isShuttingDown *bool) {
 	encoder := gob.NewEncoder(c.conn)
 
-	for !*isShuttingDown {
+	for !*isShuttingDown && c.connectionOk {
 		select {
 		case pkt := <-c.outboundIPPkts:
 			encoder.Encode(conn.PktIPPkt)
 			err := encoder.Encode(pkt)
 			if err != nil {
 				log.Printf("Write error for %s: %s\n", c.conn.RemoteAddr().String(), err.Error())
+				c.hadError(false)
 				return
 			}
 		}
@@ -45,7 +49,7 @@ func (c *serverConn) writeRoutine(isShuttingDown *bool) {
 func (c *serverConn) readRoutine(isShuttingDown *bool, ipPacketSink chan *inboundIPPkt) {
 	decoder := gob.NewDecoder(c.conn)
 
-	for !*isShuttingDown {
+	for !*isShuttingDown && c.connectionOk {
 		var pktType conn.PktType
 		err := decoder.Decode(&pktType)
 		if err != nil {
@@ -90,5 +94,6 @@ func (c *serverConn) hadError(errInRead bool) {
 	if !errInRead {
 		c.conn.Close()
 	}
+	c.connectionOk = false
 	c.server.removeClientConn(c.id)
 }

@@ -161,9 +161,13 @@ func (s *Server) route(pkt *IPPacket) {
 	s.clientsLock.Lock()
 	destClientID, canRouteDirectly := s.clientIDByAddress[pkt.Dest.String()]
 	if canRouteDirectly {
-		destClient := s.clients[destClientID]
-		destClient.queueIP(pkt)
-		//log.Println("Routing to CLIENT")
+		destClient, clientExists := s.clients[destClientID]
+		if clientExists {
+			destClient.queueIP(pkt)
+			//log.Println("Routing to CLIENT")
+		} else {
+			log.Printf("WARN: Attempted to route packet to clientID %d, which does not exist. Dropping.\n", destClientID)
+		}
 	}
 	s.clientsLock.Unlock()
 	if !canRouteDirectly {
