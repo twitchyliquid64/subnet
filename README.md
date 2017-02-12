@@ -3,6 +3,12 @@
 
 _Simple VPN server/client for the rest of us._
 
+## Overview
+
+subnet establishes a TLS connection to the server. A TUN interface is created, and setup with the given network parameters (local IP subnet). All traffic that matches the localIP + subnet gets routed to the VPN server.
+
+On the server, all traffic which is recieved is checked against all client's localIP's. If it matches, it goes down there. If it doesn't, it gets routed to the servers TUN device (to its network). If the server's kernel is configured correctly, packets coming back into the TUN device will be NATed, and hence can be routed correctly. They then get routed back to the correct client.
+
 ## Use cases
 
 #### Tunnel all non-LAN traffic through another box on the internet (traditional VPN).
@@ -37,7 +43,7 @@ Explanation:
  * Client gets the address `192.168.69.4`.
  * Client remaps its default gateway to `192.168.69.1`, forcing all non-LAN traffic through the VPN server.
 
-WARNING: The above commands setup a self-signed certificate and do not perform client verification. This allows anyone access. I highly recommend creating your own
+*WARNING:* The above commands setup a self-signed certificate and do not perform client verification. This allows anyone access. I highly recommend creating your own
 CA which signs all your certificates, and adding it to both the server & client command lines like `-ca ca.pem`. This will validate both sides are permitted.
 
 #### Make a remote LAN accessible on your machine.
@@ -71,15 +77,10 @@ Explanation:
  * Client gets the address `192.168.69.4`. The `/24` subnet mask means traffic for addresses `192.168.69.1` to `192.168.69.255` will be routed through the VPN.
  * Any traffic to `192.168.69.1` will go to the VPN server. Any traffic to `192.168.69.1` to `192.168.69.255` will go to clients connected to the same server with that address. All other traffic is routed outside of subnet.
 
-WARNING: The above commands setup a self-signed certificate and do not perform client verification. This allows anyone access. I highly recommend creating your own
+*WARNING:* The above commands setup a self-signed certificate and do not perform client verification. This allows anyone access. I highly recommend creating your own
 CA which signs all your certificates, and adding it to both the server & client command lines like `-ca ca.pem`. This will validate both sides are permitted.
 
 
-## Overview
-
-subnet establishes a TLS connection to the server. A TUN interface is created, and setup with the given network parameters (local IP, and subnet). All traffic that matches the localIP + subnet gets routed to the VPN server.
-
-On the server, all traffic which is recieved is checked against all client's localIP's. If it matches, it goes down there. If it doesn't, it gets routed to the servers TUN device (to its network). If the server's kernel is configured correctly, packets coming back into the TUN device will be NATed so we can work out where to send them. They then get routed back to the correct client.
 
 ## TODO
 
