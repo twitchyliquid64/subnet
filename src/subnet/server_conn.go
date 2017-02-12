@@ -21,7 +21,7 @@ type serverConn struct {
 }
 
 func (c *serverConn) initClient(s *Server) {
-	c.outboundIPPkts = make(chan *IPPacket, 2)
+	c.outboundIPPkts = make(chan *IPPacket, servPerClientPktQueue)
 	c.connectionOk = true
 	c.server = s
 	log.Printf("New connection from %s (%d)\n", c.conn.RemoteAddr().String(), c.id)
@@ -87,7 +87,11 @@ func (c *serverConn) readRoutine(isShuttingDown *bool, ipPacketSink chan *inboun
 }
 
 func (c *serverConn) queueIP(pkt *IPPacket) {
-	c.outboundIPPkts <- pkt
+	select {
+	case c.outboundIPPkts <- pkt:
+	default:
+		log.Printf("Warning: Dropping packets for %s as outbound msg queue is full.\n", c.remoteAddr.String())
+	}
 }
 
 func (c *serverConn) hadError(errInRead bool) {

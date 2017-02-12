@@ -140,6 +140,16 @@ func (s *Server) removeClientConn(id int) {
 	s.clientsLock.Lock()
 	defer s.clientsLock.Unlock()
 
+	//delete from the clientIDByAddress map if it exists
+	toDeleteAddr := ""
+	for dest, itemID := range s.clientIDByAddress {
+		if itemID == id {
+			toDeleteAddr = dest
+		}
+	}
+	if toDeleteAddr != "" {
+		delete(s.clientIDByAddress, toDeleteAddr)
+	}
 	delete(s.clients, id)
 }
 

@@ -8,6 +8,7 @@ import (
 	"net"
 	"subnet/conn"
 	"sync"
+	"time"
 
 	"github.com/songgao/water"
 )
@@ -15,6 +16,8 @@ import (
 // Client represents a connection to a subnet server.
 type Client struct {
 	newGateway string
+	serverAddr string
+	port       string
 
 	wg             sync.WaitGroup
 	serverIP       net.IP
@@ -29,6 +32,10 @@ type Client struct {
 	intf    *water.Interface
 	tlsConf *tls.Config
 	tlsConn *tls.Conn //do not use directly
+
+	// if false, packets are dropped
+	connectionOk  bool
+	connResetLock sync.Mutex
 
 	reverser Reverser
 }
@@ -62,6 +69,8 @@ func NewClient(servAddr, port, network, iName string, newGateway string,
 	ret := &Client{
 		intf:          intf,
 		newGateway:    newGateway,
+		serverAddr:    servAddr,
+		port:          port,
 		localAddr:     netIP,
 		localNetMask:  localNetMask,
 		serverIP:      serverIP,
@@ -81,6 +90,7 @@ func (c *Client) init(serverAddr, port string) error {
 		return err
 	}
 	c.tlsConn = tlsConn
+	c.connectionOk = true
 
 	if err := SetDevIP(c.intf.Name(), c.localAddr, c.localNetMask, false); err != nil {
 		return err
@@ -132,45 +142,89 @@ func (c *Client) Run() {
 }
 
 func (c *Client) netSendRoutine() {
-	encoder := gob.NewEncoder(c.tlsConn)
+	c.wg.Add(1)
+	defer c.wg.Done()
 
-	c.sendLocalAddr(encoder)
 	for !c.isShuttingDown {
-		pkt := <-c.packetsIn
-		err := encoder.Encode(conn.PktIPPkt)
-		if err != nil {
-			log.Println("Encode error: ", err)
+		encoder := gob.NewEncoder(c.tlsConn)
+		connOK := c.connectionOk
+		if connOK {
+			c.sendLocalAddr(encoder)
 		}
-		err = encoder.Encode(pkt)
-		if err != nil {
-			log.Println("Encode error: ", err)
+
+		for c.connectionOk && connOK {
+			pkt := <-c.packetsIn
+			err := encoder.Encode(conn.PktIPPkt)
+			if err != nil {
+				log.Println("Encode error: ", err)
+				c.connectionProblem()
+				break
+			}
+			err = encoder.Encode(pkt)
+			if err != nil {
+				log.Println("Encode error: ", err)
+				c.connectionProblem()
+				break
+			}
 		}
+		time.Sleep(time.Millisecond * 150)
 	}
 }
 
 func (c *Client) netRecvRoutine() {
-	decoder := gob.NewDecoder(c.tlsConn)
+	c.wg.Add(1)
+	defer c.wg.Done()
 
 	for !c.isShuttingDown {
-		var pktType conn.PktType
-		err := decoder.Decode(&pktType)
-		if err != nil {
-			if !c.isShuttingDown {
-				log.Printf("Net read error: %s\n", err.Error())
-			}
-			return
-		}
+		for c.connectionOk {
+			decoder := gob.NewDecoder(c.tlsConn)
+			var pktType conn.PktType
 
-		switch pktType {
-		case conn.PktIPPkt:
-			var ipPkt IPPacket
-			err := decoder.Decode(&ipPkt)
+			err := decoder.Decode(&pktType)
 			if err != nil {
-				log.Printf("Could not decode IPPacket: %s", err.Error())
+				if !c.isShuttingDown {
+					log.Printf("Net read error: %s\n", err.Error())
+					c.connectionProblem()
+					break
+				}
 				return
 			}
-			//log.Printf("[NET] Packet Received: dest %s, len %d\n", ipPkt.Dest.String(), len(ipPkt.Raw))
-			c.packetsDevOut <- &ipPkt
+
+			switch pktType {
+			case conn.PktIPPkt:
+				var ipPkt IPPacket
+				err := decoder.Decode(&ipPkt)
+				if err != nil {
+					log.Printf("Could not decode IPPacket: %s", err.Error())
+					c.connectionProblem()
+					break
+				}
+				//log.Printf("[NET] Packet Received: dest %s, len %d\n", ipPkt.Dest.String(), len(ipPkt.Raw))
+				c.packetsDevOut <- &ipPkt
+			}
+		}
+		time.Sleep(time.Millisecond * 150)
+	}
+}
+
+func (c *Client) connectionProblem() {
+	c.connResetLock.Lock()
+	defer c.connResetLock.Unlock()
+
+	if c.connectionOk {
+		log.Println("Connection problem detected. Re-connecting.")
+		c.connectionOk = false
+		for i := 0; true; i++ {
+			tlsConn, err := tls.Dial("tcp", c.serverAddr+":"+c.port, c.tlsConf)
+			if err == nil {
+				c.tlsConn = tlsConn
+				c.connectionOk = true
+				log.Println("Connection re-established.")
+				break
+			} else {
+				log.Printf("Reconnect failure: %s. Retrying in %d seconds.\n", err.Error(), i*i*5)
+				time.Sleep(time.Millisecond * time.Duration(i*i*5))
+			}
 		}
 	}
 }
