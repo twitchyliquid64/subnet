@@ -9,7 +9,7 @@ const (
 	devPktBuffSize = 4096
 
 	//Queue from network clients to ingestion
-	servMaxInboundPktQueue = 80
+	servMaxInboundPktQueue = 400
 	//Queue out to each network client
-	servPerClientPktQueue = 40
+	servPerClientPktQueue = 200
 )
