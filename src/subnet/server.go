@@ -60,8 +60,8 @@ func NewServer(servHost, port, network, iName string,
 		localNetMask:      localNetMask,
 		tlsConf:           tlsConf,
 		inboundIPPkts:     make(chan *inboundIPPkt, servMaxInboundPktQueue),
-		inboundDevPkts:    make(chan *IPPacket, 2),
-		outboundDevPkts:   make(chan *IPPacket, 2),
+		inboundDevPkts:    make(chan *IPPacket, pktInMaxBuff),
+		outboundDevPkts:   make(chan *IPPacket, pktOutMaxBuff),
 		clientIDByAddress: map[string]int{},
 		clients:           map[int]*serverConn{},
 	}
@@ -168,6 +168,10 @@ func (s *Server) dispatchRoutine() {
 }
 
 func (s *Server) route(pkt *IPPacket) {
+	if pkt.Dest.IsMulticast() { //Don't forward multicast
+		return
+	}
+
 	s.clientsLock.Lock()
 	destClientID, canRouteDirectly := s.clientIDByAddress[pkt.Dest.String()]
 	if canRouteDirectly {

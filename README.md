@@ -5,7 +5,7 @@ _Simple VPN server/client for the rest of us._
 
 ## Overview
 
-subnet establishes a TLS connection to the server. A TUN interface is created, and setup with the given network parameters (local IP subnet). All traffic that matches the localIP + subnet gets routed to the VPN server.
+subnet establishes a TLS connection to the server. A TUN interface is created, and setup with the given network parameters (local IP, subnet). All traffic that matches the localIP + subnet gets routed to the VPN server.
 
 On the server, all traffic which is recieved is checked against all client's localIP's. If it matches, it goes down there. If it doesn't, it gets routed to the servers TUN device (to its network). If the server's kernel is configured correctly, packets coming back into the TUN device will be NATed, and hence can be routed correctly. They then get routed back to the correct client.
 
@@ -33,7 +33,7 @@ Setup the client (linux for now, hopefully OSX soon):
 cd subnet
 export GOPATH=`pwd`
 go build
-sudo ./subnet -gw 192.168.69.1 -network 192.168.69.4/24 cnc.ciphersink.net
+sudo ./subnet -gw 192.168.69.1 -network 192.168.69.4/24 <server address>
 ```
 
 Explanation:
@@ -44,7 +44,7 @@ Explanation:
  * Client remaps its default gateway to `192.168.69.1`, forcing all non-LAN traffic through the VPN server.
 
 *WARNING:* The above commands setup a self-signed certificate and do not perform client verification. This allows anyone access. I highly recommend creating your own
-CA which signs all your certificates, and adding it to both the server & client command lines like `-ca ca.pem`. This will validate both sides are permitted.
+CA which signs all your certificates, and adding it to both the server & client command lines like `-ca ca.pem`. This will validate both sides are authorized to communicate.
 
 #### Make a remote LAN accessible on your machine.
 
@@ -66,7 +66,7 @@ Setup the client (linux for now, hopefully OSX soon):
 cd subnet
 export GOPATH=`pwd`
 go build
-sudo ./subnet -network 192.168.69.4/24 cnc.ciphersink.net
+sudo ./subnet -network 192.168.69.4/24 <server address>
 ```
 
 Explanation:

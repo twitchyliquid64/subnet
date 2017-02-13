@@ -38,10 +38,13 @@ func devWriteRoutine(dev *water.Interface, packetsOut chan *IPPacket, wg *sync.W
 
 	for !*isShuttingDown {
 		pkt := <-packetsOut
-		_, err := dev.Write(pkt.Raw)
+		w, err := dev.Write(pkt.Raw)
 		if err != nil {
 			log.Printf("Write to %s failed: %s\n", dev.Name(), err.Error())
 			return
+		}
+		if w != len(pkt.Raw) {
+			log.Printf("WARN: Write to %s has mismatched len: %d != %d\n", dev.Name(), w, len(pkt.Raw))
 		}
 	}
 }

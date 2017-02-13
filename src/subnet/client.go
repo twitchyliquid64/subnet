@@ -76,7 +76,7 @@ func NewClient(servAddr, port, network, iName string, newGateway string,
 		serverIP:      serverIP,
 		tlsConf:       tlsConf,
 		packetsIn:     make(chan *IPPacket, pktInMaxBuff),
-		packetsDevOut: make(chan *IPPacket, 2),
+		packetsDevOut: make(chan *IPPacket, pktOutMaxBuff),
 	}
 
 	return ret, ret.init(servAddr, port)
@@ -122,14 +122,14 @@ func (c *Client) init(serverAddr, port string) error {
 func (c *Client) Run() {
 
 	if c.newGateway != "" { //Redirect default traffic via our VPN
-		err := SetDefaultGateway(c.newGateway, c.intf.Name(), true)
+		err := SetDefaultGateway(c.newGateway, c.intf.Name(), false)
 		if err != nil {
 			log.Printf("Could set gateway: %s\n", err.Error())
 			return
 		}
 	}
 
-	err := SetInterfaceStatus(c.intf.Name(), true, true)
+	err := SetInterfaceStatus(c.intf.Name(), true, false)
 	if err != nil {
 		log.Printf("Could not bring up interface %s: %s\n", c.intf.Name(), err.Error())
 		return
@@ -154,6 +154,11 @@ func (c *Client) netSendRoutine() {
 
 		for c.connectionOk && connOK {
 			pkt := <-c.packetsIn
+
+			if pkt.Dest.IsMulticast() { //Don't forward multicast
+				continue
+			}
+
 			err := encoder.Encode(conn.PktIPPkt)
 			if err != nil {
 				log.Println("Encode error: ", err)
