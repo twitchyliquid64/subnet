@@ -7,6 +7,7 @@ const (
 
 	devMtuSize     = 1500
 	devPktBuffSize = 4096
+	devTxQueLen    = 300
 
 	//Queue from network clients to ingestion
 	servMaxInboundPktQueue = 400
