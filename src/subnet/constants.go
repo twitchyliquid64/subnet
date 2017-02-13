@@ -2,7 +2,8 @@ package subnet
 
 const (
 	//Queue from TUN -> router(server) / remote end (client)
-	pktInMaxBuff  = 150
+	pktInMaxBuff = 150
+	//Queue to TUN
 	pktOutMaxBuff = 150
 
 	devMtuSize     = 1500
