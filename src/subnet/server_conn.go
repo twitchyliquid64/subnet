@@ -5,39 +5,44 @@ import (
 	"log"
 	"net"
 	"subnet/conn"
+	"time"
 )
 
 type serverConn struct {
 	conn net.Conn
 	id   int
 
-	outboundIPPkts chan *IPPacket
+	outboundIPPkts      chan *IPPacket
+	outboundUDPInfoPkts chan *conn.UDPInfo
 
 	server     *Server
 	canSendIP  bool
 	remoteAddr net.IP
 
-	udpPort int
+	recvUDPPort    int
+	recvUDPKey     [32]byte
+	sendUDPPort    int
+	sendUDPEnabled bool
+	sendUDPKey     [32]byte
 
 	connectionOk bool
 }
 
 func (c *serverConn) initClient(s *Server) {
 	c.outboundIPPkts = make(chan *IPPacket, servPerClientPktQueue)
+	c.outboundUDPInfoPkts = make(chan *conn.UDPInfo)
+
 	c.connectionOk = true
 	c.server = s
 	log.Printf("New connection from %s (%d)\n", c.conn.RemoteAddr().String(), c.id)
 	go c.readRoutine(&s.isShuttingDown, s.inboundIPPkts)
 	go c.writeRoutine(&s.isShuttingDown)
-
-	c.udpPort = getPort()
-	go c.udpReadRoutine(&s.isShuttingDown)
 }
 
-func (c *serverConn) udpReadRoutine(isShuttingDown *bool) {
-	defer freePort(c.udpPort)
+func (c *serverConn) udpReadRoutine(isShuttingDown *bool, ipPacketSink chan *inboundIPPkt) {
+	defer freePort(c.recvUDPPort)
 	udpAddr := &net.UDPAddr{
-		Port: c.udpPort,
+		Port: c.recvUDPPort,
 	}
 
 	udpConn, err := net.ListenUDP("udp", udpAddr)
@@ -50,14 +55,23 @@ func (c *serverConn) udpReadRoutine(isShuttingDown *bool) {
 	buf := make([]byte, devPktBuffSize+128) //extra encryption bytes etc.
 
 	for !*isShuttingDown && c.connectionOk {
+		udpConn.SetDeadline(time.Now().Add(time.Millisecond * time.Duration(250)))
 		n, addr, err := udpConn.ReadFromUDP(buf)
+
+		log.Printf("UDP from %s of len %d.\n", addr.String(), n)
 
 		if err != nil {
 			log.Println("ReadUDP Error: ", err)
 			return
 		}
 
-		log.Println(buf[:n], addr)
+		plainText, err := conn.Decrypt(buf[:n], &c.recvUDPKey)
+		if err != nil {
+			log.Printf("Decryption error for %d - dropping. %s\n", c.id, err.Error())
+			continue
+		}
+
+		ipPacketSink <- &inboundIPPkt{pkt: &IPPacket{Raw: plainText}, clientID: c.id}
 	}
 }
 
@@ -65,12 +79,21 @@ func (c *serverConn) writeRoutine(isShuttingDown *bool) {
 	encoder := gob.NewEncoder(c.conn)
 
 	for !*isShuttingDown && c.connectionOk {
-		select {
+		select { //TODO: Fix minor goroutine leak with a timeout ticker
 		case pkt := <-c.outboundIPPkts:
 			encoder.Encode(conn.PktIPPkt)
 			err := encoder.Encode(pkt)
 			if err != nil {
 				log.Printf("Write error for %s: %s\n", c.conn.RemoteAddr().String(), err.Error())
+				c.hadError(false)
+				return
+			}
+
+		case pkt := <-c.outboundUDPInfoPkts:
+			encoder.Encode(conn.PktUDPInfo)
+			err := encoder.Encode(pkt)
+			if err != nil {
+				log.Printf("UDPInfo Write error for %s: %s\n", c.conn.RemoteAddr().String(), err.Error())
 				c.hadError(false)
 				return
 			}
@@ -103,6 +126,25 @@ func (c *serverConn) readRoutine(isShuttingDown *bool, ipPacketSink chan *inboun
 			}
 			c.remoteAddr = localAddr
 			c.server.setAddrForClient(c.id, localAddr)
+
+		case conn.PktUDPInfo:
+			var info conn.UDPInfo
+			err := decoder.Decode(&info)
+			if err != nil {
+				log.Printf("Could not decode conn.UDPInfo: %s", err.Error())
+				c.hadError(false)
+				return
+			}
+			if !c.sendUDPEnabled {
+				c.sendUDPPort = info.Port
+				c.sendUDPKey = info.Key
+				c.sendUDPEnabled = true
+
+				c.recvUDPPort = getPort()
+				go c.udpReadRoutine(isShuttingDown, ipPacketSink)
+				c.recvUDPKey = *conn.NewEncryptionKey()
+				c.outboundUDPInfoPkts <- &conn.UDPInfo{Key: c.recvUDPKey, Port: c.recvUDPPort}
+			}
 
 		case conn.PktIPPkt:
 			var ipPkt IPPacket

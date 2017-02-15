@@ -17,6 +17,7 @@ var connPortVar string
 
 var modeVar string
 var gatewayVar string
+var udpPortClientVar int
 
 func printUsage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -33,6 +34,7 @@ func parseFlags() {
 	flag.StringVar(&modeVar, "mode", "client", "Whether the process starts a server or as a client")
 	flag.StringVar(&networkAddrVar, "network", "192.168.69.1/24", "Address for this interface with netmask")
 	flag.StringVar(&gatewayVar, "gw", "", "(Client only) Set the default gateway to this value")
+	flag.IntVar(&udpPortClientVar, "udp", 0, "(Client only) Port for UDP. 0 to disable.")
 
 	flag.Usage = printUsage
 	flag.Parse()

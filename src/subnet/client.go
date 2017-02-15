@@ -15,9 +15,11 @@ import (
 
 // Client represents a connection to a subnet server.
 type Client struct {
-	newGateway string
-	serverAddr string
-	port       string
+	newGateway     string
+	serverAddr     string
+	port           string
+	udpPort        int
+	udpInitialized bool
 
 	wg             sync.WaitGroup
 	serverIP       net.IP
@@ -37,12 +39,17 @@ type Client struct {
 	connectionOk  bool
 	connResetLock sync.Mutex
 
+	recvUDPKey     [32]byte
+	sendUDPPort    int
+	sendUDPEnabled bool
+	sendUDPKey     [32]byte
+
 	reverser Reverser
 }
 
 // NewClient constructs a Client object.
 func NewClient(servAddr, port, network, iName string, newGateway string,
-	certPemPath, keyPemPath, caCertPath string) (*Client, error) {
+	certPemPath, keyPemPath, caCertPath string, udpPort int) (*Client, error) {
 
 	tlsConf, err := conn.TLSConfig(certPemPath, keyPemPath, caCertPath)
 	if err != nil {
@@ -67,6 +74,7 @@ func NewClient(servAddr, port, network, iName string, newGateway string,
 	log.Printf("Created iface %s\n", intf.Name())
 
 	ret := &Client{
+		udpPort:       udpPort,
 		intf:          intf,
 		newGateway:    newGateway,
 		serverAddr:    servAddr,
@@ -112,7 +120,6 @@ func (c *Client) init(serverAddr, port string) error {
 		}
 		log.Printf("Traffic to %s now routed via %s on %s.\n", c.serverIP.String(), gw, gatewayDevice)
 		c.reverser.AddRouteEntry(c.serverIP, gateway, gatewayDevice)
-
 	}
 
 	return nil
@@ -150,6 +157,9 @@ func (c *Client) netSendRoutine() {
 		connOK := c.connectionOk
 		if connOK {
 			c.sendLocalAddr(encoder)
+			if c.udpPort > 0 && !c.udpInitialized {
+				c.initUDPRecv(encoder)
+			}
 		}
 
 		for c.connectionOk && connOK {
@@ -187,6 +197,44 @@ func dropSendBuffer(buffer chan *IPPacket) {
 	}
 }
 
+func (c *Client) udpRecvRoutine() {
+	c.wg.Add(1)
+	defer c.wg.Done()
+	udpAddr := &net.UDPAddr{
+		Port: c.udpPort,
+	}
+
+	for !c.isShuttingDown {
+		udpConn, err := net.ListenUDP("udp", udpAddr)
+		if err != nil {
+			log.Println("Error listening for UDP: ", err)
+			return
+		}
+
+		buf := make([]byte, devPktBuffSize+128) //extra encryption bytes etc.
+		for c.connectionOk {
+			udpConn.SetDeadline(time.Now().Add(time.Millisecond * time.Duration(20)))
+			n, addr, err := udpConn.ReadFromUDP(buf)
+
+			log.Printf("UDP from %s of len %d.\n", addr.String(), n)
+
+			if err != nil {
+				log.Println("ReadUDP Error: ", err)
+				break
+			}
+
+			plainText, err := conn.Decrypt(buf[:n], &c.recvUDPKey)
+			if err != nil {
+				log.Printf("Decryption error - dropping. %s\n", err.Error())
+				continue
+			}
+			c.packetsDevOut <- &IPPacket{Raw: plainText}
+		}
+		udpConn.Close()
+		time.Sleep(time.Millisecond * 150)
+	}
+}
+
 func (c *Client) netRecvRoutine() {
 	c.wg.Add(1)
 	defer c.wg.Done()
@@ -210,6 +258,17 @@ func (c *Client) netRecvRoutine() {
 			switch pktType {
 			default:
 				log.Println("Got unexpected packet type: ", pktType)
+			case conn.PktUDPInfo:
+				var info conn.UDPInfo
+				err := decoder.Decode(&info)
+				if err != nil {
+					log.Printf("Could not decode conn.UDPInfo: %s", err.Error())
+					c.connectionProblem()
+					break
+				}
+				c.sendUDPKey = info.Key
+				c.sendUDPPort = info.Port
+
 			case conn.PktIPPkt:
 				var ipPkt IPPacket
 				err := decoder.Decode(&ipPkt)
@@ -267,6 +326,23 @@ func (c *Client) sendLocalAddr(encoder *gob.Encoder) error {
 		log.Println("Encode error: ", err)
 	}
 	return err
+}
+
+func (c *Client) initUDPRecv(encoder *gob.Encoder) error {
+	c.recvUDPKey = *conn.NewEncryptionKey()
+
+	err := encoder.Encode(conn.PktUDPInfo)
+	if err != nil {
+		log.Println("Encode error: ", err)
+	}
+	err = encoder.Encode(conn.UDPInfo{Key: c.recvUDPKey, Port: c.udpPort})
+	if err != nil {
+		log.Println("Encode error: ", err)
+		return err
+	}
+	c.udpInitialized = true
+	go c.udpRecvRoutine()
+	return nil
 }
 
 // Close shuts down the client, reversing configuration changes to the system.

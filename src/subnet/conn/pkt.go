@@ -8,4 +8,12 @@ const (
 	PktUnknown PktType = iota
 	PktIPPkt
 	PktLocalAddr
+	PktUDPInfo
 )
+
+//UDPInfo represents the data sent on the wire to indicate the remote client
+//should start using UDP for packet transfers.
+type UDPInfo struct {
+	Port int
+	Key  [32]byte
+}
