@@ -182,7 +182,6 @@ func (c *Client) netSendRoutine() {
 				if pkt.Dest.IsMulticast() { //Don't forward multicast
 					continue
 				}
-				log.Println(c.sendUDPKey, c.sendUDPPort)
 
 				if c.sendUDPPort > 0 && c.udpInitialized {
 					c.sendViaUDP(pkt.Raw)
@@ -210,7 +209,7 @@ func (c *Client) netSendRoutine() {
 }
 
 func (c *Client) sendViaUDP(data []byte) {
-	log.Printf("Sending data of len %d\n", len(data))
+	//log.Printf("Sending data of len %d\n", len(data))
 	ciphertext, err := conn.Encrypt(data, &c.sendUDPKey)
 	if err != nil {
 		log.Println("Could not encrypt for UDP: ", err)
@@ -249,7 +248,7 @@ func (c *Client) udpRecvRoutine() {
 	buf := make([]byte, devPktBuffSize+128) //extra encryption bytes etc.
 	for c.connectionOk {
 		udpConn.SetDeadline(time.Now().Add(time.Millisecond * time.Duration(20)))
-		n, addr, err := udpConn.ReadFromUDP(buf)
+		n, _, err := udpConn.ReadFromUDP(buf)
 		if e, ok := err.(net.Error); ok && e.Timeout() {
 			continue
 		}
@@ -258,7 +257,7 @@ func (c *Client) udpRecvRoutine() {
 			break
 		}
 
-		log.Printf("UDP from %s of len %d.\n", addr.String(), n)
+		//log.Printf("UDP from %s of len %d.\n", addr.String(), n)
 
 		plainText, err := conn.Decrypt(buf[:n], &c.recvUDPKey)
 		if err != nil {

@@ -71,7 +71,7 @@ func (c *serverConn) udpReadRoutine(isShuttingDown *bool, ipPacketSink chan *inb
 			return
 		}
 
-		log.Printf("UDP from %s of len %d.\n", addr.String(), n)
+		//log.Printf("UDP from %s of len %d.\n", addr.String(), n)
 
 		plainText, err := conn.Decrypt(buf[:n], &c.sendUDPKey)
 		if err != nil {
@@ -86,7 +86,7 @@ func (c *serverConn) udpReadRoutine(isShuttingDown *bool, ipPacketSink chan *inb
 }
 
 func (c *serverConn) sendViaUDP(data []byte) {
-	log.Printf("Sending data of len %d\n", len(data))
+	//log.Printf("Sending data of len %d\n", len(data))
 	ciphertext, err := conn.Encrypt(data, &c.recvUDPKey)
 	if err != nil {
 		log.Println("Could not encrypt for UDP: ", err)
