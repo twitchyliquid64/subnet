@@ -17,6 +17,8 @@ type serverConn struct {
 	canSendIP  bool
 	remoteAddr net.IP
 
+	udpPort int
+
 	connectionOk bool
 }
 
@@ -27,6 +29,36 @@ func (c *serverConn) initClient(s *Server) {
 	log.Printf("New connection from %s (%d)\n", c.conn.RemoteAddr().String(), c.id)
 	go c.readRoutine(&s.isShuttingDown, s.inboundIPPkts)
 	go c.writeRoutine(&s.isShuttingDown)
+
+	c.udpPort = getPort()
+	go c.udpReadRoutine(&s.isShuttingDown)
+}
+
+func (c *serverConn) udpReadRoutine(isShuttingDown *bool) {
+	defer freePort(c.udpPort)
+	udpAddr := &net.UDPAddr{
+		Port: c.udpPort,
+	}
+
+	udpConn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		log.Println("Error listening for UDP: ", err)
+		return
+	}
+	defer udpConn.Close()
+
+	buf := make([]byte, devPktBuffSize+128) //extra encryption bytes etc.
+
+	for !*isShuttingDown && c.connectionOk {
+		n, addr, err := udpConn.ReadFromUDP(buf)
+
+		if err != nil {
+			log.Println("ReadUDP Error: ", err)
+			return
+		}
+
+		log.Println(buf[:n], addr)
+	}
 }
 
 func (c *serverConn) writeRoutine(isShuttingDown *bool) {
