@@ -15,7 +15,7 @@ func main() {
 
 	switch modeVar {
 	case "client":
-		c, err := subnet.NewClient(serverAddressVar, connPortVar, networkAddrVar, interfaceNameVar, gatewayVar, ourCertPathVar, ourKeyPathVar, caCertPathVar, udpPortClientVar)
+		c, err := subnet.NewClient(serverAddressVar, connPortVar, networkAddrVar, interfaceNameVar, gatewayVar, ourCertPathVar, ourKeyPathVar, caCertPathVar)
 		checkErr(err, "subnet.NewClient()")
 		c.Run()
 		defer func() { checkErr(c.Close(), "client.Close()") }()

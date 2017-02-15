@@ -19,11 +19,12 @@ type serverConn struct {
 	canSendIP  bool
 	remoteAddr net.IP
 
-	recvUDPPort    int
-	recvUDPKey     [32]byte
-	sendUDPPort    int
-	sendUDPEnabled bool
-	sendUDPKey     [32]byte
+	recvUDPPort int      //our listening port
+	recvUDPKey  [32]byte //use to decrypt, send to client
+	sendUDPAddr net.Addr //client port
+	sendUDPKey  [32]byte //use to encrypt
+	hasUDPKey   bool
+	hasUDPAddr  bool
 
 	connectionOk bool
 }
@@ -31,11 +32,14 @@ type serverConn struct {
 func (c *serverConn) initClient(s *Server) {
 	c.outboundIPPkts = make(chan *IPPacket, servPerClientPktQueue)
 	c.outboundUDPInfoPkts = make(chan *conn.UDPInfo)
+	c.sendUDPKey = *conn.NewEncryptionKey()
+	c.recvUDPPort = getPort()
 
 	c.connectionOk = true
 	c.server = s
 	log.Printf("New connection from %s (%d)\n", c.conn.RemoteAddr().String(), c.id)
 	go c.readRoutine(&s.isShuttingDown, s.inboundIPPkts)
+	go c.udpReadRoutine(&s.isShuttingDown, s.inboundIPPkts)
 	go c.writeRoutine(&s.isShuttingDown)
 }
 
@@ -72,6 +76,8 @@ func (c *serverConn) udpReadRoutine(isShuttingDown *bool, ipPacketSink chan *inb
 			log.Printf("Decryption error for %d - dropping. %s\n", c.id, err.Error())
 			continue
 		}
+		c.sendUDPAddr = udpConn.RemoteAddr()
+		c.hasUDPAddr = true
 
 		ipPacketSink <- &inboundIPPkt{pkt: &IPPacket{Raw: plainText}, clientID: c.id}
 	}
@@ -80,9 +86,13 @@ func (c *serverConn) udpReadRoutine(isShuttingDown *bool, ipPacketSink chan *inb
 func (c *serverConn) writeRoutine(isShuttingDown *bool) {
 	encoder := gob.NewEncoder(c.conn)
 
+	encoder.Encode(conn.PktUDPInfo)
+	encoder.Encode(conn.UDPInfo{Port: c.recvUDPPort, Key: c.sendUDPKey})
+
 	for !*isShuttingDown && c.connectionOk {
 		select { //TODO: Fix minor goroutine leak with a timeout ticker
 		case pkt := <-c.outboundIPPkts:
+			log.Println(c.sendUDPKey, c.sendUDPAddr)
 			encoder.Encode(conn.PktIPPkt)
 			err := encoder.Encode(pkt)
 			if err != nil {
@@ -137,16 +147,8 @@ func (c *serverConn) readRoutine(isShuttingDown *bool, ipPacketSink chan *inboun
 				c.hadError(false)
 				return
 			}
-			if !c.sendUDPEnabled {
-				c.sendUDPPort = info.Port
-				c.sendUDPKey = info.Key
-				c.sendUDPEnabled = true
-
-				c.recvUDPPort = getPort()
-				go c.udpReadRoutine(isShuttingDown, ipPacketSink)
-				c.recvUDPKey = *conn.NewEncryptionKey()
-				c.outboundUDPInfoPkts <- &conn.UDPInfo{Key: c.recvUDPKey, Port: c.recvUDPPort}
-			}
+			c.recvUDPKey = info.Key
+			c.hasUDPKey = true
 
 		case conn.PktIPPkt:
 			var ipPkt IPPacket
