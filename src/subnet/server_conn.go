@@ -19,10 +19,10 @@ type serverConn struct {
 	canSendIP  bool
 	remoteAddr net.IP
 
-	recvUDPPort int      //our listening port
-	recvUDPKey  [32]byte //use to decrypt, send to client
+	recvUDPPort int //our listening port
+	recvUDPKey  [32]byte
 	sendUDPAddr net.Addr //client port
-	sendUDPKey  [32]byte //use to encrypt
+	sendUDPKey  [32]byte
 	hasUDPKey   bool
 	hasUDPAddr  bool
 
@@ -71,7 +71,7 @@ func (c *serverConn) udpReadRoutine(isShuttingDown *bool, ipPacketSink chan *inb
 
 		log.Printf("UDP from %s of len %d.\n", addr.String(), n)
 
-		plainText, err := conn.Decrypt(buf[:n], &c.recvUDPKey)
+		plainText, err := conn.Decrypt(buf[:n], &c.sendUDPKey)
 		if err != nil {
 			log.Printf("Decryption error for %d - dropping. %s\n", c.id, err.Error())
 			continue
@@ -92,7 +92,7 @@ func (c *serverConn) writeRoutine(isShuttingDown *bool) {
 	for !*isShuttingDown && c.connectionOk {
 		select { //TODO: Fix minor goroutine leak with a timeout ticker
 		case pkt := <-c.outboundIPPkts:
-			log.Println(c.sendUDPKey, c.sendUDPAddr)
+			log.Println(c.recvUDPKey, c.sendUDPAddr)
 			encoder.Encode(conn.PktIPPkt)
 			err := encoder.Encode(pkt)
 			if err != nil {

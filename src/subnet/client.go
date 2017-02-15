@@ -43,6 +43,7 @@ type Client struct {
 	sendUDPEnabled bool
 	sendUDPKey     [32]byte
 	udpControlPkts chan *conn.UDPInfo
+	udpConn        *net.UDPConn
 
 	reverser Reverser
 }
@@ -183,6 +184,11 @@ func (c *Client) netSendRoutine() {
 				}
 				log.Println(c.sendUDPKey, c.sendUDPPort)
 
+				if c.sendUDPPort > 0 && c.udpInitialized {
+					c.sendViaUDP(pkt.Raw)
+					return
+				}
+
 				err := encoder.Encode(conn.PktIPPkt)
 				if err != nil {
 					log.Println("Encode error: ", err)
@@ -203,6 +209,17 @@ func (c *Client) netSendRoutine() {
 	}
 }
 
+func (c *Client) sendViaUDP(data []byte) {
+	ciphertext, err := conn.Encrypt(data, &c.sendUDPKey)
+	if err != nil {
+		log.Println("Could not encrypt for UDP: ", err)
+	}
+	_, err = c.udpConn.Write(ciphertext)
+	if err != nil {
+		log.Println("Could not transmit via UDP: ", err)
+	}
+}
+
 func dropSendBuffer(buffer chan *IPPacket) {
 	for {
 		select {
@@ -217,10 +234,12 @@ func (c *Client) udpRecvRoutine() {
 	c.wg.Add(1)
 	defer c.wg.Done()
 	udpAddr := &net.UDPAddr{
+		IP:   c.serverIP,
 		Port: c.sendUDPPort,
 	}
 
 	udpConn, err := net.DialUDP("udp", &net.UDPAddr{}, udpAddr)
+	c.udpConn = udpConn
 	if err != nil {
 		log.Println("Error opening socket for UDP: ", err)
 		return
