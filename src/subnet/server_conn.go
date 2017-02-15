@@ -21,10 +21,11 @@ type serverConn struct {
 
 	recvUDPPort int //our listening port
 	recvUDPKey  [32]byte
-	sendUDPAddr net.Addr //client port
+	sendUDPAddr *net.UDPAddr //client port
 	sendUDPKey  [32]byte
 	hasUDPKey   bool
 	hasUDPAddr  bool
+	udpConn     *net.UDPConn
 
 	connectionOk bool
 }
@@ -54,6 +55,7 @@ func (c *serverConn) udpReadRoutine(isShuttingDown *bool, ipPacketSink chan *inb
 		log.Println("Error listening for UDP: ", err)
 		return
 	}
+	c.udpConn = udpConn
 	defer udpConn.Close()
 
 	buf := make([]byte, devPktBuffSize+128) //extra encryption bytes etc.
@@ -76,10 +78,22 @@ func (c *serverConn) udpReadRoutine(isShuttingDown *bool, ipPacketSink chan *inb
 			log.Printf("Decryption error for %d - dropping. %s\n", c.id, err.Error())
 			continue
 		}
-		c.sendUDPAddr = udpConn.RemoteAddr()
+		c.sendUDPAddr = addr
 		c.hasUDPAddr = true
 
 		ipPacketSink <- &inboundIPPkt{pkt: &IPPacket{Raw: plainText}, clientID: c.id}
+	}
+}
+
+func (c *serverConn) sendViaUDP(data []byte) {
+	log.Printf("Sending data of len %d\n", len(data))
+	ciphertext, err := conn.Encrypt(data, &c.recvUDPKey)
+	if err != nil {
+		log.Println("Could not encrypt for UDP: ", err)
+	}
+	_, err = c.udpConn.WriteToUDP(ciphertext, c.sendUDPAddr)
+	if err != nil {
+		log.Println("Could not transmit via UDP: ", err)
 	}
 }
 
@@ -92,7 +106,12 @@ func (c *serverConn) writeRoutine(isShuttingDown *bool) {
 	for !*isShuttingDown && c.connectionOk {
 		select { //TODO: Fix minor goroutine leak with a timeout ticker
 		case pkt := <-c.outboundIPPkts:
-			log.Println(c.recvUDPKey, c.sendUDPAddr)
+
+			if c.hasUDPAddr && c.hasUDPKey {
+				c.sendViaUDP(pkt.Raw)
+				continue
+			}
+
 			encoder.Encode(conn.PktIPPkt)
 			err := encoder.Encode(pkt)
 			if err != nil {

@@ -186,7 +186,7 @@ func (c *Client) netSendRoutine() {
 
 				if c.sendUDPPort > 0 && c.udpInitialized {
 					c.sendViaUDP(pkt.Raw)
-					return
+					continue
 				}
 
 				err := encoder.Encode(conn.PktIPPkt)
@@ -210,6 +210,7 @@ func (c *Client) netSendRoutine() {
 }
 
 func (c *Client) sendViaUDP(data []byte) {
+	log.Printf("Sending data of len %d\n", len(data))
 	ciphertext, err := conn.Encrypt(data, &c.sendUDPKey)
 	if err != nil {
 		log.Println("Could not encrypt for UDP: ", err)
