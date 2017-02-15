@@ -57,13 +57,15 @@ func (c *serverConn) udpReadRoutine(isShuttingDown *bool, ipPacketSink chan *inb
 	for !*isShuttingDown && c.connectionOk {
 		udpConn.SetDeadline(time.Now().Add(time.Millisecond * time.Duration(250)))
 		n, addr, err := udpConn.ReadFromUDP(buf)
-
-		log.Printf("UDP from %s of len %d.\n", addr.String(), n)
-
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			continue
+		}
 		if err != nil {
 			log.Println("ReadUDP Error: ", err)
 			return
 		}
+
+		log.Printf("UDP from %s of len %d.\n", addr.String(), n)
 
 		plainText, err := conn.Decrypt(buf[:n], &c.recvUDPKey)
 		if err != nil {

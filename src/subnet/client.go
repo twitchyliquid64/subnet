@@ -215,13 +215,15 @@ func (c *Client) udpRecvRoutine() {
 		for c.connectionOk {
 			udpConn.SetDeadline(time.Now().Add(time.Millisecond * time.Duration(20)))
 			n, addr, err := udpConn.ReadFromUDP(buf)
-
-			log.Printf("UDP from %s of len %d.\n", addr.String(), n)
-
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				continue
+			}
 			if err != nil {
 				log.Println("ReadUDP Error: ", err)
 				break
 			}
+
+			log.Printf("UDP from %s of len %d.\n", addr.String(), n)
 
 			plainText, err := conn.Decrypt(buf[:n], &c.recvUDPKey)
 			if err != nil {
