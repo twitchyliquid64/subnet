@@ -18,6 +18,9 @@ var connPortVar string
 var modeVar string
 var gatewayVar string
 
+var blockProfilingVar bool
+var cpuProfilingVar bool
+
 func printUsage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 	fmt.Fprintf(os.Stderr, "%s <server address>\n", os.Args[0])
@@ -33,6 +36,8 @@ func parseFlags() {
 	flag.StringVar(&modeVar, "mode", "client", "Whether the process starts a server or as a client")
 	flag.StringVar(&networkAddrVar, "network", "192.168.69.1/24", "Address for this interface with netmask")
 	flag.StringVar(&gatewayVar, "gw", "", "(Client only) Set the default gateway to this value")
+	flag.BoolVar(&blockProfilingVar, "blockProfile", false, "Enable block profiling")
+	flag.BoolVar(&cpuProfilingVar, "cpuProfile", false, "Enable CPU profiling")
 
 	flag.Usage = printUsage
 	flag.Parse()
@@ -48,6 +53,11 @@ func parseFlags() {
 			flag.PrintDefaults()
 			os.Exit(2)
 		}
+	}
+
+	if cpuProfilingVar && blockProfilingVar {
+		fmt.Fprintf(os.Stderr, "Err: Cannot enable both block and CPU profiling at once.\n")
+		os.Exit(2)
 	}
 
 	serverAddressVar = flag.Arg(0)

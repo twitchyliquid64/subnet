@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
+	"runtime/pprof"
 	"subnet"
 	"syscall"
 )
@@ -12,6 +14,18 @@ import (
 func main() {
 	parseFlags()
 	fatalErrChan := make(chan error)
+
+	if cpuProfilingVar {
+		cpuFile := startCPUProfile()
+		defer cpuFile.Close()
+		defer pprof.StopCPUProfile()
+	}
+
+	if blockProfilingVar {
+		blockFile := startBlockProfile()
+		defer blockFile.Close()
+		defer pprof.Lookup("block").WriteTo(blockFile, 1)
+	}
 
 	switch modeVar {
 	case "client":
@@ -56,4 +70,24 @@ func waitInterrupt(fatalErrChan chan error) {
 	case err := <-fatalErrChan:
 		log.Println("Fatal internal error: ", err)
 	}
+}
+
+func startCPUProfile() *os.File {
+	f, err := os.Create("cpu.prof")
+	if err != nil {
+		log.Fatal("could not create CPU profile: ", err)
+	}
+	if err := pprof.StartCPUProfile(f); err != nil {
+		log.Fatal("could not start CPU profile: ", err)
+	}
+	return f
+}
+
+func startBlockProfile() *os.File {
+	f, err := os.Create("block.prof")
+	if err != nil {
+		log.Fatal("could not create block profile: ", err)
+	}
+	runtime.SetBlockProfileRate(1)
+	return f
 }
