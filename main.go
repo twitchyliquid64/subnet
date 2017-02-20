@@ -24,7 +24,7 @@ func main() {
 	if blockProfilingVar {
 		blockFile := startBlockProfile()
 		defer blockFile.Close()
-		defer pprof.Lookup("block").WriteTo(blockFile, 1)
+		defer pprof.Lookup("block").WriteTo(blockFile, 0)
 	}
 
 	switch modeVar {
