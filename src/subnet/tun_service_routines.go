@@ -12,8 +12,8 @@ func devReadRoutine(dev *water.Interface, packetsIn chan *IPPacket, wg *sync.Wai
 	wg.Add(1)
 	defer wg.Done()
 
-	packet := make([]byte, devPktBuffSize)
 	for !*isShuttingDown {
+		packet := make([]byte, devPktBuffSize)
 		n, err := dev.Read(packet)
 		if err != nil {
 			if !*isShuttingDown {
