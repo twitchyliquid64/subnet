@@ -15,9 +15,10 @@ import (
 
 // Client represents a connection to a subnet server.
 type Client struct {
-	newGateway string
-	serverAddr string
-	port       string
+	debugMessages bool
+	newGateway    string
+	serverAddr    string
+	port          string
 
 	wg             sync.WaitGroup
 	serverIP       net.IP
@@ -67,6 +68,7 @@ func NewClient(servAddr, port, network, iName string, newGateway string,
 	log.Printf("Created iface %s\n", intf.Name())
 
 	ret := &Client{
+		debugMessages: true,
 		intf:          intf,
 		newGateway:    newGateway,
 		serverAddr:    servAddr,
@@ -92,7 +94,7 @@ func (c *Client) init(serverAddr, port string) error {
 	c.tlsConn = tlsConn
 	c.connectionOk = true
 
-	if err := SetDevIP(c.intf.Name(), c.localAddr, c.localNetMask, false); err != nil {
+	if err := SetDevIP(c.intf.Name(), c.localAddr, c.localNetMask, c.debugMessages); err != nil {
 		return err
 	}
 	log.Printf("IP of %s set to %s, localNetMask %s\n", c.intf.Name(), c.localAddr.String(), net.IP(c.localNetMask.Mask).String())
@@ -107,7 +109,7 @@ func (c *Client) init(serverAddr, port string) error {
 		log.Printf("Default gateway is %s on %s\n", gateway, gatewayDevice)
 
 		// route all traffic to the VPN server through the current gateway device
-		if err := AddRoute(c.serverIP, gateway, gatewayDevice, false); err != nil {
+		if err := AddRoute(c.serverIP, gateway, gatewayDevice, c.debugMessages); err != nil {
 			return err
 		}
 		log.Printf("Traffic to %s now routed via %s on %s.\n", c.serverIP.String(), gw, gatewayDevice)
@@ -122,14 +124,14 @@ func (c *Client) init(serverAddr, port string) error {
 func (c *Client) Run() {
 
 	if c.newGateway != "" { //Redirect default traffic via our VPN
-		err := SetDefaultGateway(c.newGateway, c.intf.Name(), false)
+		err := SetDefaultGateway(c.newGateway, c.intf.Name(), c.debugMessages)
 		if err != nil {
 			log.Printf("Could set gateway: %s\n", err.Error())
 			return
 		}
 	}
 
-	err := SetInterfaceStatus(c.intf.Name(), true, false)
+	err := SetInterfaceStatus(c.intf.Name(), true, c.debugMessages)
 	if err != nil {
 		log.Printf("Could not bring up interface %s: %s\n", c.intf.Name(), err.Error())
 		return
@@ -153,7 +155,10 @@ func (c *Client) netSendRoutine() {
 		}
 
 		for c.connectionOk && connOK {
-			pkt := <-c.packetsIn
+			pkt, ok := <-c.packetsIn
+			if !ok{
+				break
+			}
 
 			if pkt.Dest.IsMulticast() { //Don't forward multicast
 				continue

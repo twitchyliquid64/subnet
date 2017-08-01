@@ -31,7 +31,7 @@ func (r *Reverser) AddRouteEntry(destination net.IP, via net.IP, dev string) {
 // to system configuration.
 func (r *Reverser) Close() {
 	for _, route := range r.RouteDeletions {
-		e := DelRoute(route.dest, route.via, route.dev, false)
+		e := DelRoute(route.dest, route.via, route.dev, true)
 		if e == nil {
 			log.Printf("Deleted route to %s via %s on %s\n", route.dest.String(), route.via.String(), route.dev)
 		} else {
