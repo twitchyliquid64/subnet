@@ -52,18 +52,6 @@ func DelRoute(addr, viaAddr net.IP, iName string, debug bool) error {
 	return commandExec("route", args, debug)
 }
 
-func commandExec(command string, args []string, debug bool) error {
-	cmd := exec.Command(command, args...)
-	if debug {
-		log.Println("exec "+command+": ", args)
-	}
-	e := cmd.Run()
-	if e != nil {
-		log.Println("Command failed: ", e)
-	}
-	return e
-}
-
 // GetNetGateway return net gateway (default route) and nic.
 // Credit: https://github.com/bigeagle/gohop/blob/master/hop/iface.go
 func GetNetGateway() (gw, dev string, err error) {
