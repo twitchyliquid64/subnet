@@ -107,5 +107,5 @@ Usage of ./subnet:
  - [x] Document server setup proceedure, inc forward, masquasde & cert setup
  - [x] Make client resilient to connection failures to the server
  - [ ] Test routing between two clients on the same server.
- - [ ] Fix throughput issues - 5% of normal connection speed. Latency is good though.
- - [ ] Get working on OSX.
+ - [x] Fix throughput issues - 5% of normal connection speed. Latency is good though.
+ - [x] Get working on OSX.
