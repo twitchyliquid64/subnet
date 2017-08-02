@@ -157,6 +157,7 @@ func MakeServerCert(serverCertPath, serverKeyPath, CACertPath, CAKeyPath string)
   // -- make the CA --
   ca := makeBasicCert(now)
   ca.IsCA = true
+  ca.BasicConstraintsValid = true
   ca.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth}
 	ca.KeyUsage |= x509.KeyUsageCertSign
 
