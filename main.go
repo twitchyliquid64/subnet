@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"subnet"
+	"subnet/cert"
 	"syscall"
 )
 
@@ -41,6 +43,15 @@ func main() {
 		s.Run()
 		defer func() { checkErr(s.Close(), "server.Close()") }()
 		waitInterrupt(fatalErrChan)
+
+	case "init-server-certs":
+		err := cert.MakeServerCert(ourCertPathVar, ourKeyPathVar, caCertPathVar, caKeyPathVar)
+		checkErr(err, "init-server-certs")
+
+	case "make-client-cert":
+		err := cert.IssueClientCert(caCertPathVar, caKeyPathVar, flag.Arg(0), flag.Arg(1))
+		checkErr(err, "make-client-cert")
+
 
 	default:
 		fmt.Fprintf(os.Stderr, "Err: Unrecognised mode. Mode must be either client/server.\n")
