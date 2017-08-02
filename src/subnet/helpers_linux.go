@@ -5,10 +5,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 )
