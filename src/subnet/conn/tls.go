@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"time"
 )
 
 // TLSConfig generates and returns a TLS configuration based on the given parameters.
@@ -49,9 +50,12 @@ func TLSConfig(certPemPath, keyPemPath, caCertPath string) (*tls.Config, error) 
 				if err != nil {
 					return err
 				}
-				signatureErr := parsedCert.CheckSignatureFrom(caCertParsed)
-				log.Printf("Verification error for certificate: %+v", signatureErr)
-				return signatureErr
+				certErr := parsedCert.CheckSignatureFrom(caCertParsed)
+				if parsedCert.NotAfter.Before(time.Now()) || parsedCert.NotBefore.After(time.Now()){
+					certErr = errors.New("Certificate expired or used too soon")
+				}
+				log.Printf("Remote presented certificate %d with time bounds (%v-%v). Verification error for certificate: %+v", parsedCert.SerialNumber, parsedCert.NotBefore, parsedCert.NotAfter, certErr)
+				return certErr
 			}
 			return errors.New("Expected certificate which would pass, none presented")
 		},
