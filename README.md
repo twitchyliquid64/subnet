@@ -44,6 +44,9 @@ cd subnet
 export GOPATH=`pwd`
 go build -o subnet *.go
 sudo ./subnet -gw 192.168.69.1 -network 192.168.69.4/24 -cert client.certPEM -key client.keyPEM -ca ca.certPEM <server address>
+
+#If you are on Mac OSX (replace 'Wi-Fi' with your interface):
+networksetup -setdnsservers Wi-Fi 8.8.8.8
 ```
 
 Explanation:

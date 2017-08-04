@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net"
+	"runtime"
 	"subnet/conn"
 	"sync"
 	"time"
@@ -68,7 +69,7 @@ func NewClient(servAddr, port, network, iName string, newGateway string,
 	log.Printf("Created iface %s\n", intf.Name())
 
 	ret := &Client{
-		debugMessages: true,
+		debugMessages: false,
 		intf:          intf,
 		newGateway:    newGateway,
 		serverAddr:    servAddr,
@@ -114,7 +115,9 @@ func (c *Client) init(serverAddr, port string) error {
 		}
 		log.Printf("Traffic to %s now routed via %s on %s.\n", c.serverIP.String(), gw, gatewayDevice)
 		c.reverser.AddRouteEntry(c.serverIP, gateway, gatewayDevice)
-
+		if runtime.GOOS == "darwin" {
+			c.reverser.ResetGatewayOSX(c.intf, gw)
+		}
 	}
 
 	return nil
@@ -164,6 +167,7 @@ func (c *Client) netSendRoutine() {
 				continue
 			}
 
+			//log.Printf("Msg: %v", pkt.Dest)
 			err := encoder.Encode(conn.PktIPPkt)
 			if err != nil {
 				log.Println("Encode error: ", err)

@@ -3,12 +3,19 @@ package subnet
 import (
 	"log"
 	"net"
+
+	"github.com/songgao/water"
 )
 
 // Reverser contains a sequence of functions that need to be called on exit -
 // to unwind changes made to global configuration.
 type Reverser struct {
 	RouteDeletions []routeEntries
+
+	updateGateway bool
+	newGW         string
+
+	interfaceToClose *water.Interface
 }
 
 type routeEntries struct {
@@ -27,6 +34,13 @@ func (r *Reverser) AddRouteEntry(destination net.IP, via net.IP, dev string) {
 	})
 }
 
+// ResetGatewayOSX tells the reverser what gateway should be set on exit.
+func (r *Reverser) ResetGatewayOSX(intf *water.Interface, gw string) {
+	r.updateGateway = true
+	r.newGW = gw
+	r.interfaceToClose = intf
+}
+
 // Close applies the changes specified in reverser, such to reverse changes
 // to system configuration.
 func (r *Reverser) Close() {
@@ -37,5 +51,9 @@ func (r *Reverser) Close() {
 		} else {
 			log.Printf("Error: Route delete %s (%s on %s) - %s\n", route.dest.String(), route.via.String(), route.dev, e.Error())
 		}
+	}
+	if r.updateGateway {
+		r.interfaceToClose.Close()
+		commandExec("route", []string{"add", "default", r.newGW}, false)
 	}
 }

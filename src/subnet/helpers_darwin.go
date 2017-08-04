@@ -28,21 +28,21 @@ func SetDevIP(iName string, localAddr net.IP, addr *net.IPNet, debug bool) error
 
 // SetDefaultGateway sets the systems gateway to the IP / device specified.
 func SetDefaultGateway(gw, iName string, debug bool) error {
-  sargs := fmt.Sprintf("-n change default %s -interface %s", gw, iName)
+  sargs := fmt.Sprintf("-n change default -interface %s", iName)
 	args := strings.Split(sargs, " ")
 	return commandExec("route", args, debug)
 }
 
 // AddRoute routes all traffic for addr via interface iName.
 func AddRoute(addr, viaAddr net.IP, iName string, debug bool) error {
-  sargs := fmt.Sprintf("-n add %s %s -interface %s", addr.String(), viaAddr.String(), iName)
+  sargs := fmt.Sprintf("-n add %s %s -ifscope %s", addr.String(), viaAddr.String(), iName)
 	args := strings.Split(sargs, " ")
 	return commandExec("route", args, debug)
 }
 
 // DelRoute deletes the route in the system routing table to a specific destination.
 func DelRoute(addr, viaAddr net.IP, iName string, debug bool) error {
-  sargs := fmt.Sprintf("-n delete %s %s -interface %s", addr.String(), viaAddr.String(), iName)
+  sargs := fmt.Sprintf("-n delete %s %s -ifscope %s", addr.String(), viaAddr.String(), iName)
 	args := strings.Split(sargs, " ")
 	return commandExec("route", args, debug)
 }
