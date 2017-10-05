@@ -7,7 +7,7 @@ _Simple VPN server/client for the rest of us._
 
 subnet establishes a TLS connection to the server. A TUN interface is created, and setup with the given network parameters (local IP, subnet). All traffic that matches the localIP + subnet gets routed to the VPN server.
 
-On the server, all traffic which is recieved is checked against all client's localIP's. If it matches, it goes down there. If it doesn't, it gets routed to the servers TUN device (to its network). If the server's kernel is configured correctly, packets coming back into the TUN device will be NATed, and hence can be routed correctly. They then get routed back to the correct client.
+On the server, all traffic which is received is checked against all client's localIPs. If it matches, it goes down there. If it doesn't, it gets routed to the servers TUN device (to its network). If the server's kernel is configured correctly, packets coming back into the TUN device will be NATed, and hence can be routed correctly. They then get routed back to the correct client.
 
 ## Use cases
 
@@ -53,11 +53,11 @@ Explanation:
  * subnet is downloaded and compiled on both client and server.
  * A CA certificate is generated, and a server certificate is generated which is signed by the CA cert (init-server-certs mode).
  * A client certificate is generated, which again is based off the CA cert (make-client-cert mode).
- * Server's networking stack is told to allow the forwarding of packets, and to apply NAT to the packets.
+ * Server's networking stack is told to allow the forwarding of packets and to apply NAT to the packets.
  * Server gets the VPN address `192.168.69.1`, managing traffic for `192.168.69.1` - `192.168.69.255`.
  * Client gets the address `192.168.69.4`.
  * Client remaps its default gateway to `192.168.69.1`, forcing all non-LAN traffic through the VPN server.
- * On connection, both sides verify the TLS cert against the ca cert given on the command line.
+ * On connection, both sides verify the TLS cert against the CA cert given on the command line.
 
 
 #### Make a remote LAN accessible on your machine.
