@@ -17,7 +17,7 @@ func main() {
 
 	if crlPathVar != "" && (modeVar == "client" || modeVar == "server") {
 		crlStartErr := cert.InitCRL(crlPathVar)
-		checkErr(crlStartErr, "init-server-certs")
+		checkErr(crlStartErr, "init-crl")
 	}
 
 	switch modeVar {
