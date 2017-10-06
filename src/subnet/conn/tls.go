@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"subnet/cert"
 	"time"
 )
 
@@ -45,14 +46,19 @@ func TLSConfig(certPemPath, keyPemPath, caCertPath string) (*tls.Config, error) 
 			if caCertParsed == nil {
 				return nil //perform no verification
 			}
-			for _, cert := range rawCerts {
-				parsedCert, err := x509.ParseCertificate(cert)
+			for _, c := range rawCerts {
+				parsedCert, err := x509.ParseCertificate(c)
 				if err != nil {
 					return err
 				}
 				certErr := parsedCert.CheckSignatureFrom(caCertParsed)
-				if parsedCert.NotAfter.Before(time.Now()) || parsedCert.NotBefore.After(time.Now()){
+				if parsedCert.NotAfter.Before(time.Now()) || parsedCert.NotBefore.After(time.Now()) {
 					certErr = errors.New("Certificate expired or used too soon")
+				}
+				if certErr == nil {
+					if crlErr := cert.CheckCRL(parsedCert); crlErr != nil {
+						certErr = crlErr
+					}
 				}
 				log.Printf("Remote presented certificate %d with time bounds (%v-%v). Verification error for certificate: %+v", parsedCert.SerialNumber, parsedCert.NotBefore, parsedCert.NotAfter, certErr)
 				return certErr

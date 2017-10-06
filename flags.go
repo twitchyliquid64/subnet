@@ -19,8 +19,7 @@ var connPortVar string
 var modeVar string
 var gatewayVar string
 
-var blockProfilingVar bool
-var cpuProfilingVar bool
+var crlPathVar string
 
 func printUsage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -38,13 +37,12 @@ func parseFlags() {
 	flag.StringVar(&modeVar, "mode", "client", "Whether the process starts a server or as a client")
 	flag.StringVar(&networkAddrVar, "network", "192.168.69.1/24", "Address for this interface with netmask")
 	flag.StringVar(&gatewayVar, "gw", "", "(Client only) Set the default gateway to this value")
-	flag.BoolVar(&blockProfilingVar, "blockProfile", false, "Enable block profiling")
-	flag.BoolVar(&cpuProfilingVar, "cpuProfile", false, "Enable CPU profiling")
+	flag.StringVar(&crlPathVar, "crl", "", "Optional path to JSON-CRL file")
 
 	flag.Usage = printUsage
 	flag.Parse()
 
-	if modeVar != "init-server-certs" && modeVar != "make-client-cert" && flag.NArg() != 1 {
+	if modeVar != "init-server-certs" && modeVar != "make-client-cert" && modeVar != "blacklist-cert" && flag.NArg() != 1 {
 		printUsage()
 		os.Exit(2)
 	}
@@ -82,9 +80,16 @@ func parseFlags() {
 		}
 	}
 
-	if cpuProfilingVar && blockProfilingVar {
-		fmt.Fprintf(os.Stderr, "Err: Cannot enable both block and CPU profiling at once.\n")
-		os.Exit(2)
+	if modeVar == "blacklist-cert" {
+		if crlPathVar == "" {
+			fmt.Fprintf(os.Stderr, "Err: CRL path must be specified.\n")
+			flag.PrintDefaults()
+			os.Exit(2)
+		}
+		if flag.NArg() != 2 {
+			fmt.Fprintf(os.Stderr, "Err: Expected 2 arguments. EG: ./subnet -crl <crlPath> -mode blacklist-cert <certPath> \"justification\"\n")
+			os.Exit(2)
+		}
 	}
 
 	serverAddressVar = flag.Arg(0)

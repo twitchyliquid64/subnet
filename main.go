@@ -6,8 +6,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime"
-	"runtime/pprof"
 	"subnet"
 	"subnet/cert"
 	"syscall"
@@ -17,16 +15,9 @@ func main() {
 	parseFlags()
 	fatalErrChan := make(chan error)
 
-	if cpuProfilingVar {
-		cpuFile := startCPUProfile()
-		defer cpuFile.Close()
-		defer pprof.StopCPUProfile()
-	}
-
-	if blockProfilingVar {
-		blockFile := startBlockProfile()
-		defer blockFile.Close()
-		defer pprof.Lookup("block").WriteTo(blockFile, 0)
+	if crlPathVar != "" && (modeVar == "client" || modeVar == "server") {
+		crlStartErr := cert.InitCRL(crlPathVar)
+		checkErr(crlStartErr, "init-server-certs")
 	}
 
 	switch modeVar {
@@ -52,6 +43,9 @@ func main() {
 		err := cert.IssueClientCert(caCertPathVar, caKeyPathVar, flag.Arg(0), flag.Arg(1))
 		checkErr(err, "make-client-cert")
 
+	case "blacklist-cert":
+		err := cert.AddToCRL(crlPathVar, flag.Arg(0), flag.Arg(1))
+		checkErr(err, "blacklist-cert")
 
 	default:
 		fmt.Fprintf(os.Stderr, "Err: Unrecognised mode. Mode must be either client/server.\n")
@@ -81,24 +75,4 @@ func waitInterrupt(fatalErrChan chan error) {
 	case err := <-fatalErrChan:
 		log.Println("Fatal internal error: ", err)
 	}
-}
-
-func startCPUProfile() *os.File {
-	f, err := os.Create("cpu.prof")
-	if err != nil {
-		log.Fatal("could not create CPU profile: ", err)
-	}
-	if err := pprof.StartCPUProfile(f); err != nil {
-		log.Fatal("could not start CPU profile: ", err)
-	}
-	return f
-}
-
-func startBlockProfile() *os.File {
-	f, err := os.Create("block.prof")
-	if err != nil {
-		log.Fatal("could not create block profile: ", err)
-	}
-	runtime.SetBlockProfileRate(1)
-	return f
 }
