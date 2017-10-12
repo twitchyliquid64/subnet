@@ -4,7 +4,7 @@ import (
 	"encoding/gob"
 	"log"
 	"net"
-	"subnet/conn"
+	"github.com/twitchyliquid64/subnet/subnet/conn"
 )
 
 type serverConn struct {

@@ -5,9 +5,10 @@ import (
 	"errors"
 	"log"
 	"net"
-	"subnet/conn"
 	"sync"
 	"time"
+
+	"github.com/twitchyliquid64/subnet/subnet/conn"
 
 	"github.com/songgao/water"
 )
@@ -78,8 +79,8 @@ func (s *Server) Init(servHost string) (err error) {
 	if err = SetDevIP(s.intf.Name(), s.localAddr, s.localNetMask, false); err != nil {
 		return err
 	}
-	log.Printf("IP of %s set to %s, localNetMask %s\n", s.intf.Name(), s.localAddr.String(), net.IP(s.localNetMask.Mask).String())
-
+	log.Printf("Listen for TLS on %s, IP %s set to %s, localNetMask %s\n",
+		servHost, s.intf.Name(), s.localAddr.String(), net.IP(s.localNetMask.Mask).String())
 	return err
 }
 
