@@ -7,8 +7,9 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
-	"github.com/twitchyliquid64/subnet/subnet/cert"
 	"time"
+
+	"github.com/twitchyliquid64/subnet/subnet/cert"
 )
 
 // TLSConfig generates and returns a TLS configuration based on the given parameters.

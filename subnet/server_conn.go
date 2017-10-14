@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"log"
 	"net"
+
 	"github.com/twitchyliquid64/subnet/subnet/conn"
 )
 

@@ -2,8 +2,8 @@ package subnet
 
 import (
 	"errors"
-	"math/rand"
 	"log"
+	"math/rand"
 	"net"
 	"os/exec"
 	"time"
