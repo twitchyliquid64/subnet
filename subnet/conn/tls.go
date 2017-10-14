@@ -7,7 +7,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
-	"subnet/cert"
+	"github.com/twitchyliquid64/subnet/subnet/cert"
 	"time"
 )
 

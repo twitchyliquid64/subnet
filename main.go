@@ -6,9 +6,10 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"subnet"
-	"subnet/cert"
 	"syscall"
+
+	"github.com/twitchyliquid64/subnet/subnet"
+	"github.com/twitchyliquid64/subnet/subnet/cert"
 )
 
 func main() {

@@ -1,15 +1,14 @@
-/subnet
 /bin/*
 /pkg/*
-/src/gopkg.in/*
-/src/sourcegraph.com/*
-/src/github.com/alecthomas/*
-/src/github.com/derekparker/*
-/src/github.com/nicksnyder/*
-/src/github.com/nsf/*
-/src/github.com/rogpeppe/*
-/src/github.com/sqs/*
-/src/github.com/zmb3/*
+/vendor/src/gopkg.in/*
+/vendor/src/sourcegraph.com/*
+/vendor/src/github.com/alecthomas/*
+/vendor/src/github.com/derekparker/*
+/vendor/src/github.com/nicksnyder/*
+/vendor/src/github.com/nsf/*
+/vendor/src/github.com/rogpeppe/*
+/vendor/src/github.com/sqs/*
+/vendor/src/github.com/zmb3/*
 
 /ca.crt
 /ca.pem

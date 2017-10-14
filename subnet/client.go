@@ -7,9 +7,10 @@ import (
 	"log"
 	"net"
 	"runtime"
-	"subnet/conn"
 	"sync"
 	"time"
+
+	"github.com/twitchyliquid64/subnet/subnet/conn"
 
 	"github.com/songgao/water"
 )
@@ -159,7 +160,7 @@ func (c *Client) netSendRoutine() {
 
 		for c.connectionOk && connOK {
 			pkt, ok := <-c.packetsIn
-			if !ok{
+			if !ok {
 				break
 			}
 
