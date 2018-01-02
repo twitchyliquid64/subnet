@@ -14,9 +14,9 @@ type serverConn struct {
 
 	outboundIPPkts chan *IPPacket
 
-	server     *Server
-	canSendIP  bool
-	remoteAddr net.IP
+	server      *Server
+	canSendIP   bool
+	remoteAddrs []net.IP
 
 	connectionOk bool
 }
@@ -70,7 +70,7 @@ func (c *serverConn) readRoutine(isShuttingDown *bool, ipPacketSink chan *inboun
 				c.hadError(false)
 				return
 			}
-			c.remoteAddr = localAddr
+			c.remoteAddrs = append(c.remoteAddrs, localAddr)
 			c.server.setAddrForClient(c.id, localAddr)
 
 		case conn.PktIPPkt:
@@ -91,8 +91,15 @@ func (c *serverConn) queueIP(pkt *IPPacket) {
 	select {
 	case c.outboundIPPkts <- pkt:
 	default:
-		log.Printf("Warning: Dropping packets for %s as outbound msg queue is full.\n", c.remoteAddr.String())
+		log.Printf("Warning: Dropping packets for %s as outbound msg queue is full.\n", c.remoteAddressStr())
 	}
+}
+
+func (c *serverConn) remoteAddressStr() string {
+	if len(c.remoteAddrs) == 0 {
+		return ""
+	}
+	return c.remoteAddrs[0].String()
 }
 
 func (c *serverConn) hadError(errInRead bool) {

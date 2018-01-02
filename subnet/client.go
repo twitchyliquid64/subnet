@@ -22,11 +22,12 @@ type Client struct {
 	serverAddr    string
 	port          string
 
-	wg             sync.WaitGroup
-	serverIP       net.IP
-	localAddr      net.IP
-	localNetMask   *net.IPNet
-	isShuttingDown bool
+	wg              sync.WaitGroup
+	serverIP        net.IP
+	localAddr       net.IP
+	additionalAddrs []net.IP
+	localNetMask    *net.IPNet
+	isShuttingDown  bool
 
 	//channels between various components
 	packetsIn     chan *IPPacket
@@ -45,7 +46,7 @@ type Client struct {
 
 // NewClient constructs a Client object.
 func NewClient(servAddr, port, network, iName string, newGateway string,
-	certPemPath, keyPemPath, caCertPath string) (*Client, error) {
+	certPemPath, keyPemPath, caCertPath string, additionalAddresses []net.IP) (*Client, error) {
 
 	tlsConf, err := conn.TLSConfig(certPemPath, keyPemPath, caCertPath)
 	if err != nil {
@@ -70,17 +71,18 @@ func NewClient(servAddr, port, network, iName string, newGateway string,
 	log.Printf("Created iface %s\n", intf.Name())
 
 	ret := &Client{
-		debugMessages: false,
-		intf:          intf,
-		newGateway:    newGateway,
-		serverAddr:    servAddr,
-		port:          port,
-		localAddr:     netIP,
-		localNetMask:  localNetMask,
-		serverIP:      serverIP,
-		tlsConf:       tlsConf,
-		packetsIn:     make(chan *IPPacket, pktInMaxBuff),
-		packetsDevOut: make(chan *IPPacket, pktOutMaxBuff),
+		debugMessages:   false,
+		intf:            intf,
+		newGateway:      newGateway,
+		serverAddr:      servAddr,
+		port:            port,
+		localAddr:       netIP,
+		localNetMask:    localNetMask,
+		serverIP:        serverIP,
+		tlsConf:         tlsConf,
+		packetsIn:       make(chan *IPPacket, pktInMaxBuff),
+		packetsDevOut:   make(chan *IPPacket, pktOutMaxBuff),
+		additionalAddrs: additionalAddresses,
 	}
 
 	return ret, ret.init(servAddr, port)
@@ -274,9 +276,19 @@ func (c *Client) sendLocalAddr(encoder *gob.Encoder) error {
 	}
 	err = encoder.Encode(c.localAddr)
 	if err != nil {
-		log.Println("Encode error: ", err)
+		return err
 	}
-	return err
+	for _, addr := range c.additionalAddrs {
+		err = encoder.Encode(conn.PktLocalAddr)
+		if err != nil {
+			log.Println("Encode error: ", err)
+		}
+		err = encoder.Encode(addr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Close shuts down the client, reversing configuration changes to the system.

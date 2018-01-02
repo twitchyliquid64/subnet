@@ -3,11 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
+	"strings"
 )
 
 var interfaceNameVar string
 var networkAddrVar string
+var additionalClientAddrs string
 
 var caCertPathVar string
 var caKeyPathVar string
@@ -38,6 +41,7 @@ func parseFlags() {
 	flag.StringVar(&networkAddrVar, "network", "192.168.69.1/24", "Address for this interface with netmask")
 	flag.StringVar(&gatewayVar, "gw", "", "(Client only) Set the default gateway to this value")
 	flag.StringVar(&crlPathVar, "crl", "", "Optional path to JSON-CRL file")
+	flag.StringVar(&additionalClientAddrs, "req-addrs", "", "(Client only) Additional addresses to associate with the client")
 
 	flag.Usage = printUsage
 	flag.Parse()
@@ -88,6 +92,13 @@ func parseFlags() {
 		}
 		if flag.NArg() != 2 {
 			fmt.Fprintf(os.Stderr, "Err: Expected 2 arguments. EG: ./subnet -crl <crlPath> -mode blacklist-cert <certPath> \"justification\"\n")
+			os.Exit(2)
+		}
+	}
+
+	for i, addrStr := range strings.Split(additionalClientAddrs, ",") {
+		if addrStr != "" && net.ParseIP(addrStr) == nil {
+			fmt.Fprintf(os.Stderr, "Err: --req-addrs additional address (index %d) is not a valid IP address.\n", i)
 			os.Exit(2)
 		}
 	}

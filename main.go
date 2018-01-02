@@ -4,8 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/twitchyliquid64/subnet/subnet"
@@ -23,7 +25,13 @@ func main() {
 
 	switch modeVar {
 	case "client":
-		c, err := subnet.NewClient(serverAddressVar, connPortVar, networkAddrVar, interfaceNameVar, gatewayVar, ourCertPathVar, ourKeyPathVar, caCertPathVar)
+		var additionalAddrs []net.IP
+		for _, addrStr := range strings.Split(additionalClientAddrs, ",") {
+			if addrStr != "" {
+				additionalAddrs = append(additionalAddrs, net.ParseIP(addrStr))
+			}
+		}
+		c, err := subnet.NewClient(serverAddressVar, connPortVar, networkAddrVar, interfaceNameVar, gatewayVar, ourCertPathVar, ourKeyPathVar, caCertPathVar, additionalAddrs)
 		checkErr(err, "subnet.NewClient()")
 		c.Run()
 		defer func() { checkErr(c.Close(), "client.Close()") }()
