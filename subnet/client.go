@@ -36,6 +36,7 @@ type Client struct {
 	intf    *water.Interface
 	tlsConf *tls.Config
 	tlsConn *tls.Conn //do not use directly
+	tcpConn net.Conn
 
 	// if false, packets are dropped
 	connectionOk  bool
@@ -91,11 +92,20 @@ func NewClient(servAddr, port, network, iName string, newGateway string,
 // Initializes connection and changes network configuration as needed, but does not
 // activate the client object for use.
 func (c *Client) init(serverAddr, port string) error {
-	tlsConn, err := tls.Dial("tcp", serverAddr+":"+port, c.tlsConf)
+	tcpConn, err := net.Dial("tcp", serverAddr+":"+port)
 	if err != nil {
 		return err
 	}
-	c.tlsConn = tlsConn
+	tcpConn.(*net.TCPConn).SetKeepAlivePeriod(60 * time.Second)
+	tcpConn.(*net.TCPConn).SetKeepAlive(true)
+	c.tcpConn = tcpConn
+
+	c.tlsConn = tls.Client(tcpConn, c.tlsConf)
+
+	if err := c.tlsConn.Handshake(); err != nil {
+		return err
+	}
+
 	c.connectionOk = true
 
 	if err := SetDevIP(c.intf.Name(), c.localAddr, c.localNetMask, c.debugMessages); err != nil {
@@ -252,12 +262,21 @@ func (c *Client) connectionProblem() {
 	if c.connectionOk {
 		log.Println("Connection problem detected. Re-connecting.")
 		c.connectionOk = false
-
 		c.tlsConn.Close()
+		time.Sleep(time.Second)
+
 		for i := 0; true; i++ {
-			tlsConn, err := tls.Dial("tcp", c.serverAddr+":"+c.port, c.tlsConf)
+			tcpConn, err := net.Dial("tcp", c.serverAddr+":"+c.port)
+
 			if err == nil {
-				c.tlsConn = tlsConn
+				tcpConn.(*net.TCPConn).SetKeepAlivePeriod(60 * time.Second)
+				tcpConn.(*net.TCPConn).SetKeepAlive(true)
+				c.tcpConn = tcpConn
+				c.tlsConn = tls.Client(tcpConn, c.tlsConf)
+				err = c.tlsConn.Handshake()
+			}
+
+			if err == nil {
 				c.connectionOk = true
 				log.Println("Connection re-established.")
 				break
