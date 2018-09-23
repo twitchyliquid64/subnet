@@ -47,9 +47,11 @@ func main() {
 	case "init-server-certs":
 		err := cert.MakeServerCert(ourCertPathVar, ourKeyPathVar, caCertPathVar, caKeyPathVar)
 		checkErr(err, "init-server-certs")
+		fmt.Println("NOTICE: Certificates expire (and will need to be rotated) one year from now.")
 
 	case "make-client-cert":
 		err := cert.IssueClientCert(caCertPathVar, caKeyPathVar, flag.Arg(0), flag.Arg(1))
+		fmt.Println("NOTICE: Certificates expire (and will need to be rotated) one year from now.")
 		checkErr(err, "make-client-cert")
 
 	case "blacklist-cert":
