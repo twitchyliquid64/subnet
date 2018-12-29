@@ -1,0 +1,5 @@
+Package: subnet
+Version: 0.1.0
+Architecture: ARCH
+Maintainer: Twitch <twitchyliquid64@ciphersink.net>
+Description: A TLS-based VPN server/client for the rest of us.
