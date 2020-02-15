@@ -1,7 +1,9 @@
 
 # subnet
 
-_Simple VPN server/client for the rest of us._
+_VPN server/client for the rest of us._
+
+**Authors note: Subnet works but lacks thorough review, and hits performance limits over ~100Mbps. I strongly recommend [Wireguard](https://www.wireguard.com/) instead for real deployments.**
 
 ## Overview
 
